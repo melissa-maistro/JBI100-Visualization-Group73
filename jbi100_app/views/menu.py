@@ -1,48 +1,44 @@
 from dash import dcc, html
-from ..config import color_list1, color_list2
-
 
 def generate_description_card():
-    """
-
-    :return: A Div containing dashboard title & descriptions.
-    """
     return html.Div(
         id="description-card",
         children=[
-            html.H5("Example dashboard"),
+            html.H5("Humanitarian Analytics"),
+            html.H3("Vulnerability Dashboard"),
             html.Div(
                 id="intro",
-                children="You can use this as a basic template for your JBI100 visualization project.",
+                children="Explore structural risks across countries. Select a risk dimension below and click on the map for details.",
             ),
         ],
     )
 
-
 def generate_control_card():
-    """
-
-    :return: A Div containing controls for graphs.
-    """
     return html.Div(
         id="control-card",
         children=[
-            html.Label("Color scatterplot 1"),
+            html.Label("Select Risk Dimension"),
             dcc.Dropdown(
-                id="select-color-scatter-1",
-                options=[{"label": i, "value": i} for i in color_list1],
-                value=color_list1[0],
+                id="select-risk-variable",
+                options=[
+                    {'label': 'Total Vulnerability', 'value': 'Total Vulnerability'},
+                    {'label': 'Economic Risk', 'value': 'Economic Risk'},
+                    {'label': 'Demographic Risk', 'value': 'Demographic Risk'},
+                    {'label': 'Infrastructure Risk', 'value': 'Infrastructure Risk'},
+                    {'label': 'Social Risk', 'value': 'Social Risk'}
+                ],
+                value='Total Vulnerability',
+                clearable=False
             ),
-            html.Br(),
-            html.Label("Color scatterplot 2"),
-            dcc.Dropdown(
-                id="select-color-scatter-2",
-                options=[{"label": i, "value": i} for i in color_list2],
-                value=color_list2[0],
-            ),
-        ], style={"textAlign": "float-left"}
+        ],
     )
 
-
 def make_menu_layout():
-    return [generate_description_card(), generate_control_card()]
+    return html.Div(
+        id="left-column",
+        className="four columns",
+        children=[
+            generate_description_card(),
+            generate_control_card(),
+        ],
+    )
