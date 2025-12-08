@@ -1,66 +1,40 @@
-import pandas as pd
-import numpy as np
-from sklearn.preprocessing import MinMaxScaler
+from dash import dcc, html
+import plotly.express as px
 
-def get_data():
-    # Helper per pulire valute e percentuali
-    def clean_currency(x):
-        if isinstance(x, str):
-            return float(x.replace(',', '').replace('$', '').replace('%', ''))
-        return x
+class MapView(html.Div):
+    def __init__(self, name, df):
+        self.html_id = name.lower().replace(" ", "-")
+        self.df = df
+        
+        super().__init__(
+            className="map_card",
+            children=[
+                dcc.Graph(id=self.html_id)
+            ],
+        )
 
-    # Caricamento Dataset (Assumiamo che i CSV siano nella root folder del progetto)
-    try:
-        comm = pd.read_csv('communications_data.csv')
-        demo = pd.read_csv('demographics_data.csv')
-        econ = pd.read_csv('economy_data.csv')
-        gov = pd.read_csv('government_and_civics_data.csv')
-        trans = pd.read_csv('transportation_data.csv')
-    except FileNotFoundError:
-        # Fallback per evitare crash se i file non ci sono ancora
-        return pd.DataFrame()
-
-    # Merge dei dataset
-    df = demo.merge(econ, on='Country', how='left') \
-             .merge(comm, on='Country', how='left') \
-             .merge(gov, on='Country', how='left') \
-             .merge(trans, on='Country', how='left')
-
-    # Pulizia colonne
-    cols_to_clean = [
-        'Total_Literacy_Rate', 'Youth_Unemployment_Rate', 'Population_Growth_Rate',
-        'Real_GDP_per_Capita_USD', 'Population_Below_Poverty_Line_percent',
-        'internet_users_total', 'Total_Population'
-    ]
-
-    for col in cols_to_clean:
-        if col in df.columns:
-            df[col] = df[col].apply(clean_currency)
-
-    df = df.fillna(0)
-
-    # --- CALCOLO RISCHI (Normalizzazione) ---
-    scaler = MinMaxScaler()
-
-    # 1. Rischio Economico (Inv. GDP, Povertà, Disoccupazione)
-    df['norm_poverty'] = scaler.fit_transform(df[['Population_Below_Poverty_Line_percent']])
-    df['norm_unemployment'] = scaler.fit_transform(df[['Youth_Unemployment_Rate']])
-    df['norm_gdp_inverted'] = 1 - scaler.fit_transform(df[['Real_GDP_per_Capita_USD']]) 
-    df['Economic Risk'] = (df['norm_poverty'] + df['norm_unemployment'] + df['norm_gdp_inverted']) / 3
-
-    # 2. Rischio Demografico
-    df['Demographic Risk'] = scaler.fit_transform(df[['Population_Growth_Rate']])
-
-    # 3. Rischio Infrastrutturale
-    df['internet_per_capita'] = df['internet_users_total'] / df['Total_Population']
-    df['internet_per_capita'] = df['internet_per_capita'].replace([np.inf, -np.inf], 0).fillna(0)
-    df['Infrastructure Risk'] = 1 - scaler.fit_transform(df[['internet_per_capita']])
-
-    # 4. Rischio Sociale
-    df['Social Risk'] = 1 - scaler.fit_transform(df[['Total_Literacy_Rate']])
-
-    # Totale
-    risk_columns = ['Economic Risk', 'Demographic Risk', 'Infrastructure Risk', 'Social Risk']
-    df['Total Vulnerability'] = df[risk_columns].mean(axis=1)
-
-    return df
+    def update(self, selected_risk):
+        # Definiamo una scala colore semantica
+        # RdYlGn_r: Verde (Basso) -> Giallo -> Rosso (Alto)
+        
+        fig = px.choropleth(
+            self.df,
+            locations="Country",
+            locationmode='country names',
+            color=selected_risk,
+            hover_name="Country",
+            color_continuous_scale="RdYlGn_r", 
+            range_color=[0, 1], # Fissa la scala da 0 a 1 per coerenza
+            title=f"Global View: {selected_risk}",
+            projection="natural earth" # O 'orthographic' per il mappamondo 3D
+        )
+        
+        fig.update_layout(
+            margin={"r":0,"t":40,"l":0,"b":0},
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            coloraxis_colorbar=dict(title="Risk Level")
+        )
+        
+        # Abilita lo zoom e il pan nativi di Plotly
+        return fig

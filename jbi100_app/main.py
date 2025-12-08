@@ -9,58 +9,61 @@ from jbi100_app.data import get_data
 app = Dash(__name__)
 app.title = "Humanitarian Risk Viz"
 
-# Carica dati puliti
+# 1. Carica i dati
 df = get_data()
 
-# Istanzia le visualizzazioni (Classi definite nei file views/)
+# 2. Crea le istanze delle viste
 map_view = MapView("Map View", df)
 radar_view = RadarView("Radar View", df)
 
-# Definisci il Layout
+# 3. Definisci il Layout (CSS Grid-like)
 app.layout = html.Div(
     id="app-container",
     children=[
-        # Colonna Sinistra: Menu
-        html.Div(
-            id="left-column",
-            className="three columns",
-            children=make_menu_layout()
-        ),
-
-        # Colonna Destra: Visualizzazioni
+        # Sinistra: Menu
+        make_menu_layout(),
+        
+        # Destra: Area Visualizzazioni
         html.Div(
             id="right-column",
-            className="nine columns",
+            className="eight columns",
             children=[
-                html.H3("Global Risk Distribution"),
-                # La Mappa
-                map_view, 
-                html.Hr(), # Linea separatrice
-                # Il Radar
-                radar_view
+                # Riga in alto: Mappa
+                html.Div(
+                    children=[map_view],
+                    style={'height': '60vh', 'marginBottom': '20px'}
+                ),
+                
+                # Riga in basso: Radar (Dettaglio)
+                html.Div(
+                    children=[radar_view],
+                    style={'height': '40vh'}
+                )
             ],
         ),
     ],
 )
 
-# --- CALLBACKS ---
-# Le callback collegano gli input (menu, click) agli output (grafici)
+# 4. Callbacks
 
-# 1. Aggiorna la Mappa quando cambi il Rischio nel Menu
+# A. Aggiorna la Mappa quando cambi il Dropdown
 @app.callback(
     Output(map_view.html_id, "figure"),
-    Input("select-risk-variable", "value") # Assicurati che l'ID nel menu.py sia questo
+    Input("select-risk-variable", "value")
 )
-def update_map_callback(selected_risk):
+def update_map(selected_risk):
     return map_view.update(selected_risk)
 
-# 2. Aggiorna il Radar quando clicchi sulla Mappa
+# B. Aggiorna il Radar quando clicchi sulla Mappa
 @app.callback(
     Output(radar_view.html_id, "figure"),
     Input(map_view.html_id, "clickData")
 )
-def update_radar_callback(click_data):
+def update_radar(click_data):
     selected_country = None
+    # Verifica se c'è un click
     if click_data:
         selected_country = click_data['points'][0]['location']
+    
+    # Se non c'è click, passa None (la vista mostrerà la media globale)
     return radar_view.update(selected_country)
