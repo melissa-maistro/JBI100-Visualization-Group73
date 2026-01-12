@@ -1,3 +1,20 @@
+/* style.css - Aggiungi/Sostituisci in cima */
+html, body, #react-entry-point {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden; /* Blocca le barre di scorrimento */
+}
+
+/* Rimuovi eventuali padding ereditati dal foglio di stile base (base.css) */
+.container, .row, .columns {
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
 body {
     background-color: #f9f9f9;
     color: #333333;
@@ -45,4 +62,129 @@ h5 {
     margin:  0 7px;
     padding-bottom: 7px;
     border-bottom:  1px solid #ccc;
+}
+
+.zoom-btn {
+    background-color: white;
+    border: 1px solid #ccc;
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    cursor: pointer;
+    border-radius: 5px;
+    margin-bottom: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.zoom-btn:hover {
+    background-color: #f0f0f0;
+}
+
+.btn-main {
+    background-color: #2c8cff;
+    color: white;
+    border: none;
+    padding: 10px;
+    width: 100%;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.btn-confirm {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    width: 100%;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 15px;
+}
+
+.btn-compare {
+    background-color: #2c8cff;
+    color: white;
+    border: none;
+    padding: 10px;
+    width: 100%;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-action {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    width: 100%;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #999;
+    line-height: 1;
+}
+
+.close-btn:hover {
+    color: #ff4d4d;
+}
+
+.floating-btn {
+    position: fixed;
+    top: 20px;
+    background: white;
+    border: none;
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    cursor: pointer;
+    font-size: 20px;
+    z-index: 2000;
+}
+
+/* --- Compare dropdown fixes ---
+   Dash's dcc.Dropdown uses react-select. On top of a map, the options menu can
+   end up behind the map layer, making it impossible to click. We also bump the
+   drawer itself above other fixed controls.
+*/
+#menu-drawer {
+    z-index: 2500 !important;
+    /* Drawer scrollabile, ma senza tagliare il dropdown */
+    overflow-y: auto;
+    overflow-x: visible;
+}
+
+/* react-select menu */
+#menu-drawer .Select-menu-outer,
+#menu-drawer .Select-menu {
+    z-index: 3000 !important;
+}
+
+/* Classi vecchie (dipende dalla versione Dash) */
+#menu-drawer .VirtualizedSelectOption,
+#menu-drawer .VirtualizedSelectFocusedOption {
+    z-index: 3000 !important;
+}
+
+.zoom-btn {
+    width: 40px;
+    height: 40px;
+    background: white;
+    border: 1px solid #ddd;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 5px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    border-radius: 4px;
 }

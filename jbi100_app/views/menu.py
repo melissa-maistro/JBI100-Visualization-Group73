@@ -1,74 +1,61 @@
 from dash import dcc, html
 
+
 def generate_description_card():
     return html.Div(
         id="description-card",
         children=[
-            html.H5("JBI100 - Group 73"),
-            html.H3("Humanitarian Risk Dashboard"),
+            html.H5("JBI100 - Group 73", style={'marginTop': '0px'}),  # Riduco margine
+            html.H3("Humanitarian Risk", style={'marginBottom': '10px'}),  # Titolo più compatto
             html.Div(
                 id="intro",
-                children="Select a risk dimension to visualize on the map. Click on a country to see the detailed risk breakdown.",
+                children="Select a risk dimension to visualize.",
+                style={'fontSize': '14px', 'marginBottom': '15px'}  # Testo più piccolo
             ),
         ],
     )
+
 
 def generate_control_card():
     return html.Div(
         id="control-card",
         children=[
-            html.Label("Select Risk Layer"),
-            dcc.Dropdown(
+            html.Label("Select Risk Layer", style={'fontWeight': 'bold', 'fontSize': '14px', 'marginBottom': '10px'}),
+            dcc.RadioItems(
                 id="select-risk-variable",
                 options=[
-                    {'label': 'Total Vulnerability Index', 'value': 'Total Vulnerability'},
-                    {'label': 'Economic Resilience', 'value': 'Economic Risk'},
-                    {'label': 'Social Fragility', 'value': 'Social Risk'},
-                    {'label': 'Infrastructure Constraints', 'value': 'Infrastructure Risk'},
-                    {'label': 'Demographic Stress', 'value': 'Demographic Risk'}
+                    {'label': ' Total Vulnerability Index', 'value': 'Total Vulnerability'},
+                    {'label': ' Economic Resilience', 'value': 'Economic Risk'},
+                    {'label': ' Social Fragility', 'value': 'Social Risk'},
+                    {'label': ' Infrastructure Constraints', 'value': 'Infrastructure Risk'},
+                    {'label': ' Demographic Stress', 'value': 'Demographic Risk'}
                 ],
                 value='Total Vulnerability',
-                clearable=False
+                # 'display': 'block' mette ogni opzione su una nuova riga
+                labelStyle={'display': 'block', 'marginBottom': '8px', 'fontSize': '13px'},
+                style={'marginTop': '10px'}
             ),
-
-            html.Hr(),
-
-            html.H4("Task 2 — Compare Countries", style={"marginTop": "10px"}),
-
-            html.Label("Dimensions to compare"),
-            dcc.Checklist(
-                id="compare-dimensions",
-                options=[
-                    {"label": "Economic", "value": "Economic Risk"},
-                    {"label": "Social", "value": "Social Risk"},
-                    {"label": "Infrastructure", "value": "Infrastructure Risk"},
-                    {"label": "Demographic", "value": "Demographic Risk"},
-                ],
-                value=["Economic Risk", "Social Risk", "Infrastructure Risk", "Demographic Risk"],
-            ),
-
-            html.Label("Countries (multi-select)"),
-            dcc.Dropdown(
-                id="compare-countries",
-                options=[],           # riempito via callback
-                value=[],
-                multi=True,
-                placeholder="Select countries or click on the map to add",
-            ),
-
-            html.Button("Clear comparison", id="clear-compare", n_clicks=0, style={"marginTop": "8px"}),
-
-            # memoria dello stato (lista paesi in confronto)
-            dcc.Store(id="compare-store", data=[]),
         ],
     )
 
+
 def make_menu_layout():
     return html.Div(
-        id="left-column",
-        className="four columns",
+        id="floating-menu",
         children=[
             generate_description_card(),
+            html.Hr(style={'margin': '15px 0'}), # Una linea separatrice elegante
             generate_control_card(),
         ],
+        style={
+            'zIndex': '1000',
+            'width': '100%',         # Occupare lo spazio del drawer
+            'backgroundColor': 'rgba(255, 255, 255, 0.95)', # Più opaco per leggere meglio il testo
+            'padding': '20px',
+            'borderRadius': '8px',
+            'boxShadow': '0 4px 15px rgba(0,0,0,0.2)',
+            'height': 'auto',         # FONDAMENTALE: si adatta al contenuto
+            'maxHeight': '90vh',      # Limite massimo di sicurezza
+            'marginBottom': '15px'
+        }
     )
