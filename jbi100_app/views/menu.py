@@ -27,9 +27,39 @@ def generate_control_card():
                     {'label': 'Infrastructure Constraints', 'value': 'Infrastructure Risk'},
                     {'label': 'Demographic Stress', 'value': 'Demographic Risk'}
                 ],
-                value='Total Vulnerability', # Valore di default
+                value='Total Vulnerability',
                 clearable=False
             ),
+
+            html.Hr(),
+
+            html.H4("Task 2 — Compare Countries", style={"marginTop": "10px"}),
+
+            html.Label("Dimensions to compare"),
+            dcc.Checklist(
+                id="compare-dimensions",
+                options=[
+                    {"label": "Economic", "value": "Economic Risk"},
+                    {"label": "Social", "value": "Social Risk"},
+                    {"label": "Infrastructure", "value": "Infrastructure Risk"},
+                    {"label": "Demographic", "value": "Demographic Risk"},
+                ],
+                value=["Economic Risk", "Social Risk", "Infrastructure Risk", "Demographic Risk"],
+            ),
+
+            html.Label("Countries (multi-select)"),
+            dcc.Dropdown(
+                id="compare-countries",
+                options=[],           # riempito via callback
+                value=[],
+                multi=True,
+                placeholder="Select countries or click on the map to add",
+            ),
+
+            html.Button("Clear comparison", id="clear-compare", n_clicks=0, style={"marginTop": "8px"}),
+
+            # memoria dello stato (lista paesi in confronto)
+            dcc.Store(id="compare-store", data=[]),
         ],
     )
 
