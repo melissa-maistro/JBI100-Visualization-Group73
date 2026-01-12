@@ -4,6 +4,7 @@ from jbi100_app.views.menu import make_menu_layout
 from jbi100_app.views.map import MapView
 from jbi100_app.views.radar import RadarView
 from jbi100_app.data import get_data
+import dash
 
 app = Dash(__name__)
 app.title = "Humanitarian Risk Viz"
@@ -30,25 +31,22 @@ MENU_CONTAINER_STYLE = {
     "display": "block"
 }
 
-# 2. Stile della Finestra RADAR
+# 2. Stile della Finestra RADAR (Aggiornato per Drag & Drop)
 RADAR_CONTAINER_STYLE = {
     "position": "fixed",
-    "top": "80px",  # Allineato in altezza con il menu di sinistra
-    "right": "20px",  # Margine destro
-    "width": "500px",  # Larghezza aumentata (come richiesto prima)
-    "height": "auto",  # Altezza automatica o fissa
-    "maxHeight": "85vh",  # Non più alto dell'80% dello schermo
+    "top": "100px",       # Posizione iniziale Y
+    "left": "100px",      # Posizione iniziale X (non più right)
+    "width": "400px",     # Larghezza fissa
+    "height": "auto",
+    "maxHeight": "80vh",
     "backgroundColor": "white",
     "borderRadius": "12px",
-    "boxShadow": "-5px 5px 25px rgba(0,0,0,0.2)",  # Ombra verso sinistra
+    "boxShadow": "0 10px 30px rgba(0,0,0,0.3)", # Ombra più profonda per effetto "flottante"
     "zIndex": 1000,
     "padding": "20px",
-    "display": "flex",
+    "display": "none",    # Nascondiamo di default con display, non con transform
     "flexDirection": "column",
-
-    # --- MODIFICA ANIMAZIONE: ASSE X ---
-    "transform": "translateX(130%)",  # PARTENZA: Nascosto a DESTRA (130% sposta fuori)
-    "transition": "transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)",
+    "cursor": "default"
 }
 
 # 3. Bottone Hamburger
@@ -83,6 +81,34 @@ BACKDROP_STYLE = {
     "display": "none",
     "backdropFilter": "blur(3px)"
 }
+# --- STILE TASTI ZOOM ---
+ZOOM_CONTAINER_STYLE = {
+    "position": "fixed",
+    "bottom": "30px",
+    "right": "30px",
+    "zIndex": 1000,
+    "display": "flex",
+    "flexDirection": "column",
+    "boxShadow": "0 2px 6px rgba(0,0,0,0.3)",
+    "borderRadius": "4px",
+    "overflow": "hidden",
+    "backgroundColor": "white"
+}
+
+ZOOM_BTN_STYLE = {
+    "width": "40px",
+    "height": "40px",
+    "backgroundColor": "white",
+    "border": "none",
+    "borderBottom": "1px solid #eee",
+    "cursor": "pointer",
+    "fontSize": "20px",
+    "fontWeight": "bold",
+    "color": "#555",
+    "display": "flex",
+    "alignItems": "center",
+    "justifyContent": "center"
+}
 
 app.layout = html.Div([
     dcc.Store(id='menu-state-store', data=False),
@@ -109,34 +135,42 @@ app.layout = html.Div([
         id="radar-drawer",
         style=RADAR_CONTAINER_STYLE,
         children=[
+            # --- HEADER (Zona Trascinabile) ---
             html.Div(
+                id="radar-header",  # <--- QUESTO ID È OBBLIGATORIO PER IL JS
                 style={
                     "display": "flex",
                     "justifyContent": "space-between",
                     "alignItems": "center",
-                    "marginBottom": "5px",
-                    "padding": "0 10px"
+                    "marginBottom": "15px",
+                    "padding": "10px",
+                    "cursor": "move",  # <--- Il cursore deve diventare una croce
+                    "backgroundColor": "#f9f9f9",  # Un po' di colore per riconoscerlo
+                    "borderBottom": "1px solid #eee",
+                    "borderRadius": "12px 12px 0 0"
                 },
                 children=[
-                    html.H5("Country Details", style={"margin": 0, "color": "#555"}),
+                    html.H5("Country Details", style={"margin": 0, "userSelect": "none"}),
                     html.Button(
                         "×",
                         id="close-radar-btn",
                         n_clicks=0,
-                        style={
-                            "background": "transparent",
-                            "border": "none",
-                            "fontSize": "24px",
-                            "cursor": "pointer",
-                            "color": "#888"
-                        }
+                        style={"border": "none", "background": "transparent", "fontSize": "20px", "cursor": "pointer"}
                     )
                 ]
             ),
-            html.Div(radar_view, style={"flex": "1"})
+            # Contenuto del Radar
+            html.Div(radar_view, style={"flex": "1", "padding": "0 10px"})
         ]
     ),
-
+    # NUOVI TASTI ZOOM
+    html.Div(
+        style=ZOOM_CONTAINER_STYLE,
+        children=[
+            html.Button("+", id="btn-zoom-in", n_clicks=0, style=ZOOM_BTN_STYLE),
+            html.Button("-", id="btn-zoom-out", n_clicks=0, style={**ZOOM_BTN_STYLE, "borderBottom": "none"})
+        ]
+    ),
     # Mappa Fullscreen
     html.Div(
         style={
@@ -149,6 +183,7 @@ app.layout = html.Div([
         },
         children=[map_view]
     )
+
 ])
 
 
@@ -198,39 +233,51 @@ def update_menu_visuals(is_open):
 
 # B. Radar Visibility Logic
 @app.callback(
-    Output("radar-state-store", "data"),
+    [Output("radar-state-store", "data"),
+     Output(map_view.html_id, "clickData")],  # <--- NUOVO OUTPUT: Resetta il click
     [Input(map_view.html_id, "clickData"),
      Input("close-radar-btn", "n_clicks")],
     [State("radar-state-store", "data")]
 )
 def toggle_radar_visibility(map_click, close_click, is_open):
     trigger = ctx.triggered_id
-    if not trigger: return False
 
-    if trigger == map_view.html_id and map_click:
-        return True
+    # 1. Caricamento iniziale: non fare nulla
+    if not trigger:
+        return is_open, dash.no_update
+
+    # 2. Se premo la X -> Chiudi finestra E dimentica il click
     if trigger == "close-radar-btn":
-        return False
+        # Output 1: False (chiudi), Output 2: None (resetta mappa)
+        return False, None
 
-    return is_open
+    # 3. Se clicco sulla mappa -> Apri finestra
+    if trigger == map_view.html_id and map_click:
+        # Output 1: True (apri), Output 2: no_update (tieni il dato cliccato)
+        return True, dash.no_update
+
+    return is_open, dash.no_update
 
 @app.callback(
     Output("radar-drawer", "style"),
-    Input("radar-state-store", "data")
+    Input("radar-state-store", "data"),
+    State("radar-drawer", "style")
 )
-def update_radar_visuals(is_open):
-    # Copiamo lo stile base
-    style = RADAR_CONTAINER_STYLE.copy()
+def update_radar_visuals(is_open, current_style):
+    if current_style is None:
+        current_style = RADAR_CONTAINER_STYLE.copy()
+
+    new_style = current_style.copy()
 
     if is_open:
-        # PORTALO DENTRO (Posizione 0)
-        style["transform"] = "translateX(0)"
+        new_style["display"] = "flex"
+        # IMPORTANTE: Rimuovi le catene!
+        # Se c'è un transform attivo, la finestra sembra bloccata.
+        new_style["transform"] = "none"
     else:
-        # BUTTALO FUORI A DESTRA
-        style["transform"] = "translateX(130%)"
+        new_style["display"] = "none"
 
-    return style
-
+    return new_style
 # C. AGGIORNAMENTO DATI (Map & Radar)
 @app.callback(
     Output(map_view.html_id, "figure"),
@@ -253,6 +300,49 @@ def update_radar_data(click_data, selected_risk):
     # Passa SIA il paese SIA il rischio selezionato alla vista Radar
     # Nota: Assicurati che radar.py accetti due argomenti in update()
     return radar_view.update(country, selected_risk)
+
+
+# --- CALLBACK PER INFO WINDOW (ROBUSTA) ---
+@app.callback(
+    [Output("info-card", "style"),
+     Output("info-backdrop", "style")],
+    [Input("open-info-btn", "n_clicks"),
+     Input("info-backdrop", "n_clicks")],
+    [State("info-card", "style"),
+     State("info-backdrop", "style")],
+    prevent_initial_call=True
+)
+def toggle_info_window(btn_clicks, backdrop_clicks, card_style, backdrop_style):
+    # Inizializzazione difensiva: se gli stili sono None, creali vuoti
+    if card_style is None: card_style = {}
+    if backdrop_style is None: backdrop_style = {}
+
+    # Identifica chi ha cliccato
+    ctx_id = ctx.triggered_id
+
+    new_card = card_style.copy()
+    new_backdrop = backdrop_style.copy()
+
+    # Controlliamo lo stato attuale: è visibile?
+    # Se 'display' non esiste, assumiamo che sia 'none' (chiuso)
+    is_visible = new_card.get('display', 'none') == 'block'
+
+    if ctx_id == "open-info-btn":
+        if not is_visible:
+            # APRI: Imposta block su entrambi
+            new_card['display'] = 'block'
+            new_backdrop['display'] = 'block'
+        else:
+            # CHIUDI
+            new_card['display'] = 'none'
+            new_backdrop['display'] = 'none'
+
+    elif ctx_id == "info-backdrop":
+        # Se clicco fuori -> CHIUDI SEMPRE
+        new_card['display'] = 'none'
+        new_backdrop['display'] = 'none'
+
+    return new_card, new_backdrop
 
 
 if __name__ == '__main__':

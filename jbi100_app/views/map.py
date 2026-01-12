@@ -24,11 +24,25 @@ class MapView(html.Div):
             children=[
                 dcc.Graph(
                     id=self.html_id,
-                    # Altezza controllata: 80vh è grande ma lascia spazio sopra e sotto.
-                    # maxHeight evita che diventi enorme su monitor giganti.
                     style={'height': '100vh', 'width': '100%', 'display': 'block'},
-                    # Rimuove la toolbar in alto a destra per pulizia
-                    config={'displayModeBar': False, 'scrollZoom': True}
+                    config={
+                        # 1. Attiva la barra dei comandi
+                        'displayModeBar': True,
+
+                        # 2. Nascondi il logo di Plotly
+                        'displaylogo': False,
+
+                        # 3. Rimuovi tutti i tasti inutili, tieni solo Zoom (+/-) e Pan
+                        'modeBarButtonsToRemove': [
+                            'select2d', 'lasso2d', 'autoScale2d',
+                            'resetScale2d', 'hoverClosestGeo',
+                            'hoverCompareCartesian', 'toggleSpikelines',
+                            'toImage', 'resetGeo'
+                        ],
+
+                        # 4. Abilita lo zoom con la rotellina del mouse
+                        'scrollZoom': True
+                    }
                 )
             ],
         )
@@ -80,13 +94,18 @@ class MapView(html.Div):
 
             # 2. TITOLO IN OVERLAY
             title=dict(
-                text=f"Global Risk Map: {selected_risk}",
+                text=f"Global risk map: {selected_risk}",
                 # y=0.95 lo posiziona in alto, ma DENTRO l'area del grafico
                 y=0.95,
-                x=0.5,
+                x=0.86,
+                # --- QUI SI CAMBIA IL FONT ---
+                font=dict(
+                    family="Helvetica, Helvetica neue, Arial, sans-serif",  # Il font richiesto
+                    size=20,  # Grandezza (puoi aumentarla se vuoi)
+                    color="#333"  # Colore scuro (grigio scuro/nero)
+                ),
                 xanchor='center',
                 yanchor='top',
-
                 # FONDAMENTALE: automargin=False impedisce la creazione della barra bianca
                 automargin=False,
                 pad=dict(t=10)  # Un piccolo spazio dal bordo fisico del monitor per estetica
