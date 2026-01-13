@@ -1,8 +1,9 @@
 from dash import Dash, html, dcc, ctx
 from dash.dependencies import Input, Output, State
 from jbi100_app.views.menu import make_menu_layout
-from jbi100_app.views.map import MapView
+from jbi100_app.views.map_view import MapView
 from jbi100_app.views.radar import RadarView
+from jbi100_app.views.parallelplot import ParallelPlotView  # ✅ NUOVO
 from jbi100_app.data import get_data
 import dash
 
@@ -12,44 +13,65 @@ app.title = "Humanitarian Risk Viz"
 df = get_data()
 map_view = MapView("Map View", df)
 radar_view = RadarView("Radar View", df)
+parallel_view = ParallelPlotView("Parallel Plot", df)  # ✅ NUOVO
 
 # --- STILI CSS ---
 
-# 1. Stile del Menu (Drawer laterale invisibile/contenitore)
 MENU_CONTAINER_STYLE = {
     "position": "fixed",
     "top": "80px",
     "left": "20px",
-    "zIndex": 2000,
+    # 🔥 portiamo sopra hamburger (2100) per evitare click issues
+    "zIndex": 2500,
     "width": "fit-content",
     "height": "auto",
     "maxHeight": "85vh",
-    "overflow": "visible",
+    # 🔥 importantissimo: drawer scrollabile
+    "overflowY": "auto",
+    "overflowX": "visible",
     "opacity": 0,
     "visibility": "hidden",
     "transition": "opacity 0.3s ease-in-out, visibility 0.3s ease-in-out",
-    "display": "block"
+    "display": "block",
+    "backgroundColor": "transparent"
 }
 
-# 2. Stile della Finestra RADAR (Aggiornato per Drag & Drop)
 RADAR_CONTAINER_STYLE = {
     "position": "fixed",
-    "top": "100px",       # Posizione iniziale Y
-    "left": "100px",      # Posizione iniziale X (non più right)
-    "width": "400px",     # Larghezza fissa
+    "top": "100px",
+    "left": "100px",
+    "width": "400px",
     "height": "auto",
     "maxHeight": "80vh",
     "backgroundColor": "white",
     "borderRadius": "12px",
-    "boxShadow": "0 10px 30px rgba(0,0,0,0.3)", # Ombra più profonda per effetto "flottante"
-    "zIndex": 1000,
+    "boxShadow": "0 10px 30px rgba(0,0,0,0.3)",
+    "zIndex": 2400,
     "padding": "20px",
-    "display": "none",    # Nascondiamo di default con display, non con transform
+    "display": "none",
     "flexDirection": "column",
     "cursor": "default"
 }
 
-# 3. Bottone Hamburger
+# ✅ NUOVO: PARALLEL DRAWER (sinistra, sotto hamburger)
+PARALLEL_CONTAINER_STYLE = {
+    "position": "fixed",
+    "top": "100px",
+    "left": "100px",
+    "width": "620px",
+    "height": "auto",
+    "maxHeight": "80vh",
+    "backgroundColor": "white",
+    "borderRadius": "12px",
+    "boxShadow": "0 10px 30px rgba(0,0,0,0.3)",
+    "zIndex": 2450,
+    "padding": "16px",
+    "display": "none",
+    "flexDirection": "column",
+    "cursor": "default",
+    "overflowY": "auto"
+}
+
 HAMBURGER_STYLE = {
     "position": "fixed",
     "top": "20px",
@@ -69,7 +91,6 @@ HAMBURGER_STYLE = {
     "color": "#333"
 }
 
-# 4. Backdrop
 BACKDROP_STYLE = {
     "position": "fixed",
     "top": 0,
@@ -81,7 +102,7 @@ BACKDROP_STYLE = {
     "display": "none",
     "backdropFilter": "blur(3px)"
 }
-# --- STILE TASTI ZOOM ---
+
 ZOOM_CONTAINER_STYLE = {
     "position": "fixed",
     "bottom": "30px",
@@ -114,38 +135,99 @@ app.layout = html.Div([
     dcc.Store(id='menu-state-store', data=False),
     dcc.Store(id='radar-state-store', data=False),
 
-    # Elementi UI
+    # ✅ NUOVI STORE per comparison
+    dcc.Store(id='parallel-state-store', data=False),
+    dcc.Store(id='compare-countries-store', data=[]),
+
+    # UI
     html.Button("☰", id="hamburger-btn", n_clicks=0, style=HAMBURGER_STYLE),
     html.Div(id="menu-backdrop", style=BACKDROP_STYLE, n_clicks=0),
 
-    # Menu Drawer
+    # MENU DRAWER (sinistra)
     html.Div(
         id="menu-drawer",
         style=MENU_CONTAINER_STYLE,
         children=[
             html.Div(
-                children=[make_menu_layout()],
+                children=[
+                    make_menu_layout(include_compare=False),
+
+                    # ✅ COMPARISON TASK (sotto il menu)
+                    html.Hr(style={"margin": "12px 0"}),
+                    html.H4("Comparison Task", style={"margin": "0 0 8px 0", "color": "#2c8cff"}),
+
+                    html.Div("Select countries and open the Parallel Plot.",
+                             style={"fontSize": "13px", "marginBottom": "8px"}),
+
+                    html.Button(
+                        "Open Parallel Plot",
+                        id="open-parallel-btn",
+                        n_clicks=0,
+                        style={
+                            "marginTop": "10px",
+                            "width": "100%",
+                            "padding": "12px",
+                            "border": "none",
+                            "borderRadius": "8px",
+                            "cursor": "pointer",
+                            "fontWeight": "bold",
+                            "backgroundColor": "#007bff",
+                            "color": "white"
+                        }
+                    ),
+
+                ],
                 style={"minWidth": "300px"}
             )
         ]
     ),
 
-    # Radar Drawer
+    # ✅ PARALLEL DRAWER
+    html.Div(
+        id="parallel-drawer",
+        style=PARALLEL_CONTAINER_STYLE,
+        children=[
+            html.Div(
+                id="parallel-header",
+                style={
+                    "display": "flex",
+                    "justifyContent": "space-between",
+                    "alignItems": "center",
+                    "marginBottom": "10px",
+                    "padding": "8px 10px",
+                    "backgroundColor": "#f9f9f9",
+                    "borderBottom": "1px solid #eee",
+                    "borderRadius": "10px 10px 0 0"
+                },
+                children=[
+                    html.H5("Parallel Plot Comparison", style={"margin": 0, "userSelect": "none"}),
+                    html.Button(
+                        "×",
+                        id="close-parallel-btn",
+                        n_clicks=0,
+                        style={"border": "none", "background": "transparent", "fontSize": "20px", "cursor": "pointer"}
+                    )
+                ]
+            ),
+            html.Div(parallel_view, style={"padding": "0 6px 6px 6px"})
+        ]
+    ),
+
+    # RADAR DRAWER
     html.Div(
         id="radar-drawer",
         style=RADAR_CONTAINER_STYLE,
         children=[
-            # --- HEADER (Zona Trascinabile) ---
             html.Div(
-                id="radar-header",  # <--- QUESTO ID È OBBLIGATORIO PER IL JS
+                id="radar-header",
                 style={
                     "display": "flex",
                     "justifyContent": "space-between",
                     "alignItems": "center",
                     "marginBottom": "15px",
                     "padding": "10px",
-                    "cursor": "move",  # <--- Il cursore deve diventare una croce
-                    "backgroundColor": "#f9f9f9",  # Un po' di colore per riconoscerlo
+                    "cursor": "move",
+                    "backgroundColor": "#f9f9f9",
                     "borderBottom": "1px solid #eee",
                     "borderRadius": "12px 12px 0 0"
                 },
@@ -159,11 +241,11 @@ app.layout = html.Div([
                     )
                 ]
             ),
-            # Contenuto del Radar
             html.Div(radar_view, style={"flex": "1", "padding": "0 10px"})
         ]
     ),
-    # NUOVI TASTI ZOOM
+
+    # ZOOM
     html.Div(
         style=ZOOM_CONTAINER_STYLE,
         children=[
@@ -171,7 +253,8 @@ app.layout = html.Div([
             html.Button("-", id="btn-zoom-out", n_clicks=0, style={**ZOOM_BTN_STYLE, "borderBottom": "none"})
         ]
     ),
-    # Mappa Fullscreen
+
+    # MAPPA FULLSCREEN
     html.Div(
         style={
             "height": "100vh",
@@ -183,9 +266,7 @@ app.layout = html.Div([
         },
         children=[map_view]
     )
-
 ])
-
 
 # --- CALLBACKS ---
 
@@ -199,11 +280,15 @@ app.layout = html.Div([
 )
 def update_menu_state(n_hamburger, n_backdrop, risk_value, is_open):
     trigger = ctx.triggered_id
-    if not trigger: return False
+    if not trigger:
+        return False
 
-    if trigger == "select-risk-variable": return False
-    if trigger == "hamburger-btn": return not is_open
-    if trigger == "menu-backdrop": return False
+    if trigger == "select-risk-variable":
+        return False
+    if trigger == "hamburger-btn":
+        return not is_open
+    if trigger == "menu-backdrop":
+        return False
 
     return is_open
 
@@ -234,7 +319,7 @@ def update_menu_visuals(is_open):
 # B. Radar Visibility Logic
 @app.callback(
     [Output("radar-state-store", "data"),
-     Output(map_view.html_id, "clickData")],  # <--- NUOVO OUTPUT: Resetta il click
+     Output(map_view.html_id, "clickData")],
     [Input(map_view.html_id, "clickData"),
      Input("close-radar-btn", "n_clicks")],
     [State("radar-state-store", "data")]
@@ -242,21 +327,17 @@ def update_menu_visuals(is_open):
 def toggle_radar_visibility(map_click, close_click, is_open):
     trigger = ctx.triggered_id
 
-    # 1. Caricamento iniziale: non fare nulla
     if not trigger:
         return is_open, dash.no_update
 
-    # 2. Se premo la X -> Chiudi finestra E dimentica il click
     if trigger == "close-radar-btn":
-        # Output 1: False (chiudi), Output 2: None (resetta mappa)
         return False, None
 
-    # 3. Se clicco sulla mappa -> Apri finestra
     if trigger == map_view.html_id and map_click:
-        # Output 1: True (apri), Output 2: no_update (tieni il dato cliccato)
         return True, dash.no_update
 
     return is_open, dash.no_update
+
 
 @app.callback(
     Output("radar-drawer", "style"),
@@ -271,38 +352,83 @@ def update_radar_visuals(is_open, current_style):
 
     if is_open:
         new_style["display"] = "flex"
-        # IMPORTANTE: Rimuovi le catene!
-        # Se c'è un transform attivo, la finestra sembra bloccata.
         new_style["transform"] = "none"
     else:
         new_style["display"] = "none"
 
     return new_style
-# C. AGGIORNAMENTO DATI (Map & Radar)
+
+
+# C. Update MAP (ora considera anche compare countries)
 @app.callback(
     Output(map_view.html_id, "figure"),
-    Input("select-risk-variable", "value")
+    [Input("select-risk-variable", "value"),
+     Input("compare-countries-store", "data")]
 )
-def update_map(selected_risk):
-    return map_view.update(selected_risk)
+def update_map(selected_risk, compare_countries):
+    return map_view.update(selected_risk, compare_countries)
 
 
-# --- CORREZIONE QUI SOTTO ---
+# D. Update RADAR
 @app.callback(
     Output(radar_view.html_id, "figure"),
     [Input(map_view.html_id, "clickData"),
-     Input("select-risk-variable", "value")]  # <--- ORA ASCOLTA ANCHE IL MENU
+     Input("select-risk-variable", "value")]
 )
 def update_radar_data(click_data, selected_risk):
-    # Recupera il paese cliccato (se esiste)
     country = click_data['points'][0]['location'] if click_data else None
-
-    # Passa SIA il paese SIA il rischio selezionato alla vista Radar
-    # Nota: Assicurati che radar.py accetti due argomenti in update()
     return radar_view.update(country, selected_risk)
 
 
-# --- CALLBACK PER INFO WINDOW (ROBUSTA) ---
+# ✅ E. COMPARISON: salva selezione paesi
+@app.callback(
+    Output("compare-countries-store", "data"),
+    Input("compare-dropdown", "value")
+)
+def store_compare_countries(countries):
+    return countries or []
+
+
+# ✅ F. COMPARISON: apri/chiudi drawer + aggiorna parallel plot
+@app.callback(
+    [Output("parallel-state-store", "data"),
+     Output(parallel_view.html_id, "figure")],
+    [Input("open-parallel-btn", "n_clicks"),
+     Input("close-parallel-btn", "n_clicks")],
+    [State("parallel-state-store", "data"),
+     State("compare-countries-store", "data")],
+    prevent_initial_call=True
+)
+def toggle_parallel(n_open, n_close, is_open, countries):
+    trigger = ctx.triggered_id
+
+    if trigger == "close-parallel-btn":
+        return False, dash.no_update
+
+    if trigger == "open-parallel-btn":
+        # Apri solo se ci sono paesi selezionati
+        if not countries:
+            return False, parallel_view.update([])
+        return True, parallel_view.update(countries)
+
+    return is_open, dash.no_update
+
+
+@app.callback(
+    Output("parallel-drawer", "style"),
+    Input("parallel-state-store", "data"),
+    State("parallel-drawer", "style")
+)
+def update_parallel_visuals(is_open, current_style):
+    if current_style is None:
+        current_style = PARALLEL_CONTAINER_STYLE.copy()
+
+    new_style = current_style.copy()
+    new_style["display"] = "flex" if is_open else "none"
+    return new_style
+
+
+# --- INFO WINDOW (tuo callback) ---
 @app.callback(
     [Output("info-card", "style"),
      Output("info-backdrop", "style")],
@@ -313,32 +439,27 @@ def update_radar_data(click_data, selected_risk):
     prevent_initial_call=True
 )
 def toggle_info_window(btn_clicks, backdrop_clicks, card_style, backdrop_style):
-    # Inizializzazione difensiva: se gli stili sono None, creali vuoti
-    if card_style is None: card_style = {}
-    if backdrop_style is None: backdrop_style = {}
+    if card_style is None:
+        card_style = {}
+    if backdrop_style is None:
+        backdrop_style = {}
 
-    # Identifica chi ha cliccato
     ctx_id = ctx.triggered_id
 
     new_card = card_style.copy()
     new_backdrop = backdrop_style.copy()
 
-    # Controlliamo lo stato attuale: è visibile?
-    # Se 'display' non esiste, assumiamo che sia 'none' (chiuso)
     is_visible = new_card.get('display', 'none') == 'block'
 
     if ctx_id == "open-info-btn":
         if not is_visible:
-            # APRI: Imposta block su entrambi
             new_card['display'] = 'block'
             new_backdrop['display'] = 'block'
         else:
-            # CHIUDI
             new_card['display'] = 'none'
             new_backdrop['display'] = 'none'
 
     elif ctx_id == "info-backdrop":
-        # Se clicco fuori -> CHIUDI SEMPRE
         new_card['display'] = 'none'
         new_backdrop['display'] = 'none'
 

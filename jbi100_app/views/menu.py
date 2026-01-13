@@ -38,29 +38,116 @@ def generate_control_card():
     )
 
 
+def generate_compare_controls():
+    """
+    Controlli per la modalità di comparazione tra paesi.
+    IMPORTANTE: Usa ID diversi se ci sono duplicati
+    """
+    return html.Div(
+        id="compare-section",
+        children=[
+            html.Hr(style={'margin': '15px 0'}),
+            
+            # Bottone per attivare/disattivare la modalità compare
+            html.Button(
+                "Activate Compare Mode",
+                id="toggle-compare-btn",
+                n_clicks=0,
+                style={
+                    'width': '100%',
+                    'padding': '10px',
+                    'backgroundColor': '#2c8cff',
+                    'color': 'white',
+                    'border': 'none',
+                    'borderRadius': '4px',
+                    'cursor': 'pointer',
+                    'fontSize': '13px',
+                    'fontWeight': 'bold',
+                    'marginBottom': '10px'
+                }
+            ),
+            
+            # Contenitore per i controlli di selezione
+            html.Div(
+                id="compare-controls",
+                style={'display': 'none'},
+                children=[
+                    html.Label(
+                        "Select Countries to Compare:",
+                        style={'fontWeight': 'bold', 'fontSize': '13px', 'marginTop': '10px', 'display': 'block'}
+                    ),
+                    html.Div(
+                        "Click countries on the map or use the dropdown below",
+                        style={'fontSize': '11px', 'color': '#666', 'marginBottom': '10px', 'fontStyle': 'italic'}
+                    ),
+                    
+                    # Dropdown per selezionare i paesi
+                    dcc.Dropdown(
+                        id="compare-dropdown",
+                        options=[],
+                        value=[],
+                        multi=True,
+                        placeholder="Select countries...",
+                        style={'marginBottom': '10px', 'fontSize': '12px'}
+                    ),
+                    
+                    # Bottoni per azioni
+                    html.Div(
+                        style={'display': 'flex', 'gap': '8px', 'marginBottom': '10px'},
+                        children=[
+                            html.Button(
+                                "Clear Selection",
+                                id="clear-compare-btn",
+                                n_clicks=0,
+                                style={
+                                    'flex': '1',
+                                    'padding': '8px',
+                                    'backgroundColor': '#dc3545',
+                                    'color': 'white',
+                                    'border': 'none',
+                                    'borderRadius': '4px',
+                                    'cursor': 'pointer',
+                                    'fontSize': '12px'
+                                }
+                            ),
+                            
+                        ]
+                    ),
+                    
+                    # Container per il parallel plot
+                    html.Div(
+                        id="parallel-container",
+                        style={'display': 'none', 'marginTop': '10px'},
+                        children=[
+                            dcc.Graph(
+                                id="parallel-plot",
+                                config={"displayModeBar": False},
+                                style={"height": "300px"}
+                            )
+                        ]
+                    )
+                ]
+            )
+        ]
+    )
+
+
 def generate_info_tooltip():
     """
     Backdrop (Sfondo click-away) e Scheda Informativa.
-    Usa 'position: fixed' con coordinate negative per garantire la copertura
-    anche se il genitore ha trasformazioni CSS.
     """
-
-    # 1. Stile dello Sfondo Invisibile (Backdrop)
-    # Usiamo margini negativi enormi per assicurarci di coprire tutto lo schermo
-    # anche se il contenitore padre (il menu) è spostato o animato.
     backdrop_style = {
         'position': 'fixed',
         'top': '-100vh',
         'left': '-100vw',
-        'width': '300vw',  # Molto più grande dello schermo
-        'height': '300vh',  # Molto più grande dello schermo
+        'width': '300vw',
+        'height': '300vh',
         'zIndex': 2998,
-        'display': 'none',  # IMPORTANTE: Nascosto all'inizio
+        'display': 'none',
         'cursor': 'default',
         'backgroundColor': 'transparent'
     }
 
-    # 2. Stile della Scheda
     card_style = {
         'position': 'absolute',
         'top': '35px',
@@ -76,14 +163,11 @@ def generate_info_tooltip():
         'boxShadow': '0 4px 20px rgba(0,0,0,0.3)',
         'zIndex': 2999,
         'textAlign': 'left',
-        'display': 'none'  # IMPORTANTE: Nascosto all'inizio
+        'display': 'none'
     }
 
     return html.Div([
-        # Backdrop per chiudere cliccando fuori
         html.Div(id="info-backdrop", style=backdrop_style, n_clicks=0),
-
-        # Wrapper Bottone + Scheda
         html.Div(
             style={
                 'position': 'absolute',
@@ -92,7 +176,6 @@ def generate_info_tooltip():
                 'zIndex': 3000
             },
             children=[
-                # Bottone "?"
                 html.Div(
                     "?",
                     id="open-info-btn",
@@ -107,8 +190,6 @@ def generate_info_tooltip():
                     },
                     title="Show Methodology"
                 ),
-
-                # Scheda Contenuto
                 html.Div(
                     id="info-card",
                     style=card_style,
@@ -155,15 +236,20 @@ def generate_info_tooltip():
     ])
 
 
-def make_menu_layout():
+def make_menu_layout(include_compare=True):
+    children = [
+        generate_info_tooltip(),
+        generate_description_card(),
+        html.Hr(style={'margin': '15px 0'}),
+        generate_control_card(),
+    ]
+
+    if include_compare:
+        children.append(generate_compare_controls())
+
     return html.Div(
         id="floating-menu",
-        children=[
-            generate_info_tooltip(),  # Inseriamo il tooltip
-            generate_description_card(),
-            html.Hr(style={'margin': '15px 0'}),
-            generate_control_card(),
-        ],
+        children=children,
         style={
             'position': 'absolute',
             'top': '20px',
@@ -176,5 +262,6 @@ def make_menu_layout():
             'boxShadow': '0 4px 15px rgba(0,0,0,0.2)',
             'height': 'auto',
             'maxHeight': '90vh',
+            'overflow': 'auto'
         }
     )
