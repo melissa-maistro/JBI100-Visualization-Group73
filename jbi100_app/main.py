@@ -3,6 +3,7 @@ from dash.dependencies import Input, Output, State
 from jbi100_app.views.menu import make_menu_layout
 from jbi100_app.views.map import MapView
 from jbi100_app.views.radar import RadarView
+from jbi100_app.views.scatterplot import Scatterplot
 from jbi100_app.data import get_data
 
 app = Dash(__name__)
@@ -11,6 +12,13 @@ app.title = "Humanitarian Risk Viz"
 df = get_data()
 map_view = MapView("Map View", df)
 radar_view = RadarView("Radar View", df)
+
+pca_scatter = Scatterplot(
+    name="PCA Risk Space",
+    feature_x="PC1",
+    feature_y="PC2",
+    df=df
+)
 
 # --- STILI CSS ---
 
@@ -33,22 +41,21 @@ MENU_CONTAINER_STYLE = {
 # 2. Stile della Finestra RADAR
 RADAR_CONTAINER_STYLE = {
     "position": "fixed",
-    "top": "80px",  # Allineato in altezza con il menu di sinistra
-    "right": "20px",  # Margine destro
-    "width": "500px",  # Larghezza aumentata (come richiesto prima)
-    "height": "auto",  # Altezza automatica o fissa
-    "maxHeight": "85vh",  # Non più alto dell'80% dello schermo
+    "top": "80px",
+    "right": "20px",
+    "width": "500px",
+    "height": "auto",
+    "maxHeight": "85vh",
     "backgroundColor": "white",
-    "borderRadius": "12px",
-    "boxShadow": "-5px 5px 25px rgba(0,0,0,0.2)",  # Ombra verso sinistra
+    "borderRadius": "16px",
+    "boxShadow": "0 8px 32px rgba(0, 0, 0, 0.15)",
     "zIndex": 1000,
-    "padding": "20px",
+    "padding": "24px",
     "display": "flex",
     "flexDirection": "column",
-
-    # --- MODIFICA ANIMAZIONE: ASSE X ---
-    "transform": "translateX(130%)",  # PARTENZA: Nascosto a DESTRA (130% sposta fuori)
+    "transform": "translateX(130%)",
     "transition": "transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)",
+    "border": "1px solid rgba(230, 230, 235, 0.8)"
 }
 
 # 3. Bottone Hamburger
@@ -58,17 +65,19 @@ HAMBURGER_STYLE = {
     "left": "20px",
     "zIndex": 2100,
     "backgroundColor": "white",
-    "border": "none",
+    "border": "1px solid rgba(230, 230, 235, 0.8)",
     "borderRadius": "50%",
-    "width": "50px",
-    "height": "50px",
+    "width": "54px",
+    "height": "54px",
     "display": "flex",
     "alignItems": "center",
     "justifyContent": "center",
     "cursor": "pointer",
     "fontSize": "24px",
-    "boxShadow": "0 4px 10px rgba(0,0,0,0.2)",
-    "color": "#333"
+    "boxShadow": "0 4px 16px rgba(0,0,0,0.12)",
+    "color": "#2c3e50",
+    "transition": "all 0.2s ease",
+    "fontWeight": "300"
 }
 
 # 4. Backdrop
@@ -84,9 +93,31 @@ BACKDROP_STYLE = {
     "backdropFilter": "blur(3px)"
 }
 
+# 5. PCA Container Style
+PCA_CONTAINER_STYLE = {
+    "position": "fixed",
+    "bottom": "20px",
+    "right": "20px",
+    "width": "550px",
+    "height": "520px",
+    "backgroundColor": "white",
+    "borderRadius": "16px",
+    "boxShadow": "0 8px 32px rgba(0, 0, 0, 0.15)",
+    "zIndex": 1010,
+    "padding": "24px",
+    "display": "flex",
+    "flexDirection": "column",
+    "transform": "translateY(120%)",
+    "transition": "transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)",
+    "border": "1px solid rgba(230, 230, 235, 0.8)"
+}
+
+
 app.layout = html.Div([
     dcc.Store(id='menu-state-store', data=False),
     dcc.Store(id='radar-state-store', data=False),
+    dcc.Store(id='pca-state-store', data=False),
+    dcc.Store(id='brushed-countries-store', data=[]),  # Store brushed countries
 
     # Elementi UI
     html.Button("☰", id="hamburger-btn", n_clicks=0, style=HAMBURGER_STYLE),
@@ -114,11 +145,19 @@ app.layout = html.Div([
                     "display": "flex",
                     "justifyContent": "space-between",
                     "alignItems": "center",
-                    "marginBottom": "5px",
-                    "padding": "0 10px"
+                    "marginBottom": "16px",
+                    "padding": "0 4px",
+                    "borderBottom": "2px solid rgba(100, 149, 237, 0.2)",
+                    "paddingBottom": "12px"
                 },
                 children=[
-                    html.H5("Country Details", style={"margin": 0, "color": "#555"}),
+                    html.H5("Country Details", style={
+                        "margin": 0,
+                        "color": "#2c3e50",
+                        "fontWeight": "600",
+                        "fontSize": "18px",
+                        "letterSpacing": "0.3px"
+                    }),
                     html.Button(
                         "×",
                         id="close-radar-btn",
@@ -126,9 +165,17 @@ app.layout = html.Div([
                         style={
                             "background": "transparent",
                             "border": "none",
-                            "fontSize": "24px",
+                            "fontSize": "28px",
                             "cursor": "pointer",
-                            "color": "#888"
+                            "color": "#95a5a6",
+                            "transition": "color 0.2s",
+                            "padding": "0",
+                            "width": "32px",
+                            "height": "32px",
+                            "display": "flex",
+                            "alignItems": "center",
+                            "justifyContent": "center",
+                            "borderRadius": "50%"
                         }
                     )
                 ]
@@ -148,6 +195,65 @@ app.layout = html.Div([
             "zIndex": 1
         },
         children=[map_view]
+    ),
+    
+    # PCA Scatterplot Drawer
+    html.Div(
+        id="pca-drawer",
+        style=PCA_CONTAINER_STYLE,
+        children=[
+            # Header + Close Button
+            html.Div(
+                style={
+                    "display": "flex",
+                    "justifyContent": "space-between",
+                    "alignItems": "center",
+                    "marginBottom": "16px",
+                    "padding": "0 4px",
+                    "borderBottom": "2px solid rgba(100, 149, 237, 0.2)",
+                    "paddingBottom": "12px"
+                },
+                children=[
+                    html.H5("PCA Risk Space", style={
+                        "margin": 0,
+                        "color": "#2c3e50",
+                        "fontWeight": "600",
+                        "fontSize": "18px",
+                        "letterSpacing": "0.3px"
+                    }),
+                    html.Button(
+                        "×",
+                        id="close-pca-btn",
+                        n_clicks=0,
+                        style={
+                            "background": "transparent",
+                            "border": "none",
+                            "fontSize": "28px",
+                            "cursor": "pointer",
+                            "color": "#95a5a6",
+                            "transition": "color 0.2s",
+                            "padding": "0",
+                            "width": "32px",
+                            "height": "32px",
+                            "display": "flex",
+                            "alignItems": "center",
+                            "justifyContent": "center",
+                            "borderRadius": "50%"
+                        }
+                    )
+                ]
+            ),
+
+            # Graph content
+            html.Div(
+                dcc.Graph(
+                    id=pca_scatter.html_id,
+                    figure=pca_scatter.update('rgb(255,100,100)', None),
+                    style={"height": "100%"}
+                ),
+                style={"flex": "1", "overflow": "hidden"}
+            )
+        ]
     )
 ])
 
@@ -164,11 +270,15 @@ app.layout = html.Div([
 )
 def update_menu_state(n_hamburger, n_backdrop, risk_value, is_open):
     trigger = ctx.triggered_id
-    if not trigger: return False
+    if not trigger:
+        return False
 
-    if trigger == "select-risk-variable": return False
-    if trigger == "hamburger-btn": return not is_open
-    if trigger == "menu-backdrop": return False
+    if trigger == "select-risk-variable":
+        return False
+    if trigger == "hamburger-btn":
+        return not is_open
+    if trigger == "menu-backdrop":
+        return False
 
     return is_open
 
@@ -205,7 +315,8 @@ def update_menu_visuals(is_open):
 )
 def toggle_radar_visibility(map_click, close_click, is_open):
     trigger = ctx.triggered_id
-    if not trigger: return False
+    if not trigger:
+        return False
 
     if trigger == map_view.html_id and map_click:
         return True
@@ -214,45 +325,110 @@ def toggle_radar_visibility(map_click, close_click, is_open):
 
     return is_open
 
+
 @app.callback(
     Output("radar-drawer", "style"),
     Input("radar-state-store", "data")
 )
 def update_radar_visuals(is_open):
-    # Copiamo lo stile base
     style = RADAR_CONTAINER_STYLE.copy()
 
     if is_open:
-        # PORTALO DENTRO (Posizione 0)
         style["transform"] = "translateX(0)"
     else:
-        # BUTTALO FUORI A DESTRA
         style["transform"] = "translateX(130%)"
 
     return style
 
-# C. AGGIORNAMENTO DATI (Map & Radar)
+
+# C. Store Brushed Countries from PCA
+@app.callback(
+    Output("brushed-countries-store", "data"),
+    Input(pca_scatter.html_id, "selectedData")
+)
+def store_brushed_countries(selected_data):
+    """Extract country names from brushed points in PCA scatter"""
+    if selected_data is None or 'points' not in selected_data:
+        return []
+    
+    # Get indices of selected points
+    selected_indices = [point['pointIndex'] for point in selected_data['points']]
+    
+    # Get country names from dataframe using indices
+    # Assumes df has a 'Country' column or similar
+    brushed_countries = df.iloc[selected_indices]['Country'].tolist() if 'Country' in df.columns else []
+    
+    return brushed_countries
+
+
+# D. Map Update with Brushed Countries
 @app.callback(
     Output(map_view.html_id, "figure"),
-    Input("select-risk-variable", "value")
+    [Input("select-risk-variable", "value"),
+     Input("brushed-countries-store", "data")]
 )
-def update_map(selected_risk):
-    return map_view.update(selected_risk)
+def update_map(selected_risk, brushed_countries):
+    """Update map with risk variable and highlight brushed countries"""
+    return map_view.update(selected_risk, brushed_countries)
 
 
-# --- CORREZIONE QUI SOTTO ---
+# E. Radar Data Update
 @app.callback(
     Output(radar_view.html_id, "figure"),
     [Input(map_view.html_id, "clickData"),
-     Input("select-risk-variable", "value")]  # <--- ORA ASCOLTA ANCHE IL MENU
+     Input("select-risk-variable", "value")]
 )
 def update_radar_data(click_data, selected_risk):
-    # Recupera il paese cliccato (se esiste)
     country = click_data['points'][0]['location'] if click_data else None
-
-    # Passa SIA il paese SIA il rischio selezionato alla vista Radar
-    # Nota: Assicurati che radar.py accetti due argomenti in update()
     return radar_view.update(country, selected_risk)
+
+
+# F. PCA Visibility Toggle
+@app.callback(
+    Output("pca-state-store", "data"),
+    [Input(map_view.html_id, "clickData"),
+     Input("close-pca-btn", "n_clicks")],
+    [State("pca-state-store", "data")]
+)
+def toggle_pca_visibility(map_click, close_click, is_open):
+    trigger = ctx.triggered_id
+    if not trigger:
+        return False
+
+    if trigger == map_view.html_id and map_click:
+        return True
+    if trigger == "close-pca-btn":
+        return False
+
+    return is_open
+
+
+# G. PCA Drawer Animation
+@app.callback(
+    Output("pca-drawer", "style"),
+    Input("pca-state-store", "data")
+)
+def update_pca_visuals(is_open):
+    style = PCA_CONTAINER_STYLE.copy()
+
+    if is_open:
+        style["transform"] = "translateY(0)"
+    else:
+        style["transform"] = "translateY(120%)"
+
+    return style
+
+
+# H. PCA Graph Update
+@app.callback(
+    Output(pca_scatter.html_id, "figure"),
+    [Input(map_view.html_id, "clickData"),
+     Input("select-risk-variable", "value")],
+)
+def update_pca_graph(map_click, selected_risk):
+    """Highlight clicked country in PCA scatter"""
+    selected_color = "rgb(255,100,100)"
+    return pca_scatter.update(selected_color, map_click)
 
 
 if __name__ == '__main__':

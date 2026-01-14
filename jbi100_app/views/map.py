@@ -1,8 +1,8 @@
 from dash import dcc, html
 import plotly.express as px
+import plotly.graph_objects as go
 
 
-# 2. La tua Classe MapView (Ottimizzata per interattività Client-Side)
 class MapView(html.Div):
     def __init__(self, name, df):
         self.html_id = name.lower().replace(" ", "-")
@@ -10,34 +10,41 @@ class MapView(html.Div):
 
         super().__init__(
             className="map_card",
-            # Stile container: Definisce i limiti fisici della mappa nella pagina
             style={
                 'top': '0',
                 'left': '0',
                 'width': '100vw',
-                'height': '100vh',  # L'altezza si adatta al contenuto
+                'height': '100vh',
                 'margin': '0',
                 'padding': '0',
-                'position': 'fixed',  # Necessario per gestire le sovrapposizioni
-                'zIndex': '1'  # Assicura un livello di base coerente
+                'position': 'fixed',
+                'zIndex': '1'
             },
             children=[
                 dcc.Graph(
                     id=self.html_id,
-                    # Altezza controllata: 80vh è grande ma lascia spazio sopra e sotto.
-                    # maxHeight evita che diventi enorme su monitor giganti.
                     style={'height': '100vh', 'width': '100%', 'display': 'block'},
-                    # Rimuove la toolbar in alto a destra per pulizia
                     config={'displayModeBar': False, 'scrollZoom': True}
                 )
             ],
         )
 
-    def update(self, selected_risk):
-        # Verifica se il rischio selezionato esiste nel dataframe
+    def update(self, selected_risk, brushed_countries=None):
+        """
+        Update map with selected risk variable and highlight brushed countries
+        
+        Args:
+            selected_risk: The risk variable to display
+            brushed_countries: List of country names to highlight in red (from PCA brushing)
+        """
+        if brushed_countries is None:
+            brushed_countries = []
+        
+        # Verify the selected risk exists in the dataframe
         if selected_risk not in self.df.columns:
             return {}
 
+        # Create base choropleth with risk data
         fig = px.choropleth(
             self.df,
             locations="Country",
@@ -47,52 +54,56 @@ class MapView(html.Div):
             hover_data={'Country': False},
             color_continuous_scale="RdYlGn_r",
             range_color=[0, 1],
-            # title=f"Global View: {selected_risk}",
             projection="natural earth"
         )
 
-        # OTTIMIZZAZIONE VISIVA & INTERATTIVITÀ (Client-Side)
-        # Non possiamo cambiare colore al volo senza JS custom, ma possiamo
-        # giocare con l'opacità e i bordi per far risaltare la selezione.
+        # Update base trace styling
         fig.update_traces(
-            marker_line_color='white',  # Bordo bianco netto
-            marker_line_width=1,  # Spessore bordo standard
-            marker_opacity=0.85 # Opacità < 1 fa risaltare meglio il contenuto sotto il cursore
+            marker_line_color='white',
+            marker_line_width=1,
+            marker_opacity=0.85
         )
 
+        # Add elegant overlay for brushed countries
+        if brushed_countries:
+            brushed_df = self.df[self.df['Country'].isin(brushed_countries)]
+            
+            # Create a pulsing effect with a vibrant accent color
+            fig.add_trace(go.Choropleth(
+                locations=brushed_df['Country'],
+                locationmode='country names',
+                z=[1] * len(brushed_df),  # Dummy values for uniform color
+                colorscale=[[0, 'rgba(100, 149, 237, 0.5)'], [1, 'rgba(100, 149, 237, 0.5)']],  # Cornflower blue
+                showscale=False,
+                marker_line_color='rgba(65, 105, 225, 1)',  # Royal blue border
+                marker_line_width=3,
+                marker_opacity=0.65,
+                hovertemplate='<b>%{location}</b><br><i>Selected from PCA</i><extra></extra>',
+                name='Selected Countries'
+            ))
+
+        # Update layout
         fig.update_layout(
             dragmode=False,
-
-            # 1. MARGINI A ZERO (La mappa tocca i bordi fisici)
             margin=dict(l=0, r=0, t=0, b=0, pad=0, autoexpand=False),
-
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
-
             geo=dict(
                 showframe=False,
                 showcoastlines=False,
                 projection_type='natural earth',
-                # Se vuoi ridurre le bande bianche sopra/sotto dovute alla forma della terra:
                 projection_scale=1.05,
                 center=dict(lat=0, lon=0)
             ),
-
-            # 2. TITOLO IN OVERLAY
             title=dict(
                 text=f"Global Risk Map: {selected_risk}",
-                # y=0.95 lo posiziona in alto, ma DENTRO l'area del grafico
                 y=0.95,
                 x=0.5,
                 xanchor='center',
                 yanchor='top',
-
-                # FONDAMENTALE: automargin=False impedisce la creazione della barra bianca
                 automargin=False,
-                pad=dict(t=10)  # Un piccolo spazio dal bordo fisico del monitor per estetica
+                pad=dict(t=10)
             ),
-
-            # ... resto delle configurazioni (coloraxis, hoverlabel)...
             coloraxis_colorbar=dict(
                 title="Risk Level",
                 x=0.11, xanchor="center",
