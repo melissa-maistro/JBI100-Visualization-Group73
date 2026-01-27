@@ -25,21 +25,14 @@ class MapView(html.Div):
                     id=self.html_id,
                     style={'height': '100vh', 'width': '100%', 'display': 'block'},
                     config={
-                        # Show toolbar
                         'displayModeBar': True,
-                        
-                        # Hide Plotly logo
                         'displaylogo': False,
-                        
-                        # Remove unnecessary buttons, keep only Zoom and Pan
                         'modeBarButtonsToRemove': [
                             'select2d', 'lasso2d', 'autoScale2d',
                             'resetScale2d', 'hoverClosestGeo',
                             'hoverCompareCartesian', 'toggleSpikelines',
                             'toImage', 'resetGeo'
                         ],
-                        
-                        # Enable scroll zoom
                         'scrollZoom': True
                     }
                 )
@@ -47,17 +40,7 @@ class MapView(html.Div):
         )
 
     def update(self, selected_risk, highlight_countries=None):
-        """
-        Update map with selected risk variable and highlight selected countries
-        
-        Args:
-            selected_risk: The risk variable to display
-            highlight_countries: List of country names to highlight (from PCA brushing or Compare mode)
-        """
-        if highlight_countries is None:
-            highlight_countries = []
-        
-        # Verify the selected risk exists in the dataframe
+        # Verifica se il rischio selezionato esiste
         if selected_risk not in self.df.columns:
             return {}
 
@@ -74,33 +57,30 @@ class MapView(html.Div):
             projection="natural earth"
         )
 
-        # Update base trace styling
         fig.update_traces(
             marker_line_color='white',
             marker_line_width=1,
             marker_opacity=0.85
         )
 
-        # Add elegant overlay for highlighted countries (PCA brushing or Compare selection)
+        # --- EVIDENZIA PAESI SELEZIONATI (overlay cyan) ---
         if highlight_countries:
             highlight_df = self.df[self.df['Country'].isin(highlight_countries)]
-            
             if not highlight_df.empty:
-                # Add beautiful blue overlay with prominent border
                 fig.add_trace(go.Choropleth(
                     locations=highlight_df['Country'],
                     locationmode='country names',
-                    z=[1] * len(highlight_df),  # Dummy values for uniform color
-                    colorscale=[[0, 'rgba(100, 149, 237, 0.5)'], [1, 'rgba(100, 149, 237, 0.5)']],  # Cornflower blue
+                    z=highlight_df[selected_risk],
+                    colorscale="RdYlGn_r",
+                    zmin=0, zmax=1,
                     showscale=False,
-                    marker_line_color='rgba(65, 105, 225, 1)',  # Royal blue border
-                    marker_line_width=3,
-                    marker_opacity=0.65,
-                    hovertemplate='<b>%{location}</b><br><i>Selected</i><extra></extra>',
-                    name='Selected Countries'
+                    marker=dict(
+                        line=dict(color='cyan', width=3),
+                        opacity=1
+                    ),
+                    hoverinfo='skip'
                 ))
 
-        # Update layout
         fig.update_layout(
             dragmode=False,
             margin=dict(l=0, r=0, t=0, b=0, pad=0, autoexpand=False),
@@ -114,12 +94,10 @@ class MapView(html.Div):
                 center=dict(lat=0, lon=0)
             ),
             title=dict(
-                text=f"Global Risk Map: {selected_risk}",
-                y=0.95,
-                x=0.86,  # Positioned to the right
+                text=f"Global risk map: {selected_risk}",
+                y=0.95, x=0.86,
                 font=dict(family="Helvetica, Arial, sans-serif", size=20, color="#333"),
-                xanchor='center',
-                yanchor='top',
+                xanchor='center', yanchor='top',
                 automargin=False,
                 pad=dict(t=10)
             ),
@@ -135,7 +113,6 @@ class MapView(html.Div):
             hoverlabel=dict(
                 bgcolor="rgba(255, 255, 255, 0.95)",
                 font_size=15,
-                font_family="Arial",
                 bordercolor="#333",
                 namelength=-1
             )
