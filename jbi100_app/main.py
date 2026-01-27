@@ -121,8 +121,30 @@ SHEET_COLLAPSED_HEIGHT = "64px"   # focus mappa
 SHEET_EXPANDED_HEIGHT  = "60vh"   # focus plot (non taglia)
 
 app.layout = html.Div([
+    # Stores
     dcc.Store(id='menu-state-store', data=False),
     dcc.Store(id='radar-state-store', data=False),
+    dcc.Store(id='pca-state-store', data=False),
+    dcc.Store(id='brushed-countries-store', data=[]),
+    dcc.Store(id='compare-mode-store', data=False),
+    dcc.Store(id='selected-countries-store', data=[]),
+    dcc.Store(id='explore-mode-store', data=False),  # NEW
+    dcc.Store(id='compare-sheet-store', data='collapsed'),  # NEW for sheet state
+    
+    # Invisible overlay to capture clicks anywhere on screen
+    html.Div(
+        id="click-capture-overlay",
+        n_clicks=0,
+        style={
+            "position": "fixed",
+            "top": 0,
+            "left": 0,
+            "width": "100vw",
+            "height": "100vh",
+            "zIndex": 0,
+            "pointerEvents": "auto"
+        }
+    ),
 
     dcc.Store(id='compare-mode-store', data=False),
     dcc.Store(id='selected-countries-store', data=[]),

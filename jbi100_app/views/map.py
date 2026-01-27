@@ -44,6 +44,7 @@ class MapView(html.Div):
         if selected_risk not in self.df.columns:
             return {}
 
+        # Create base choropleth with risk data
         fig = px.choropleth(
             self.df,
             locations="Country",
@@ -102,9 +103,12 @@ class MapView(html.Div):
             ),
             coloraxis_colorbar=dict(
                 title="Risk Level",
-                x=0.11, xanchor="center",
-                y=0.5, yanchor="middle",
-                len=0.4, thickness=15
+                x=0.11,
+                xanchor="center",
+                y=0.5,
+                yanchor="middle",
+                len=0.4,
+                thickness=15
             ),
             hoverlabel=dict(
                 bgcolor="rgba(255, 255, 255, 0.95)",
