@@ -3,6 +3,7 @@ from dash.dependencies import Input, Output, State
 from jbi100_app.views.menu import make_menu_layout
 from jbi100_app.views.map import MapView
 from jbi100_app.views.radar import RadarView
+from jbi100_app.views.scatterplot import Scatterplot
 from jbi100_app.views.compare import CompareView
 from jbi100_app.data import get_data
 import dash
@@ -17,56 +18,108 @@ map_view = MapView("Map View", df)
 radar_view = RadarView("Radar View", df)
 compare_view = CompareView("Compare View", df)
 
+pca_scatter = Scatterplot(
+    name="PCA Risk Space",
+    feature_x="PC1",
+    feature_y="PC2",
+    df=df
+)
+
+# Lista paesi per il dropdown
 all_countries = sorted(df['Country'].unique().tolist())
 
 # --- STILI CSS ---
 
+# 1. Stile del Menu (Drawer laterale invisibile/contenitore)
 MENU_CONTAINER_STYLE = {
-    "position": "fixed", "top": "80px", "left": "20px", "zIndex": 2000,
-    "width": "fit-content", "height": "auto", "maxHeight": "85vh",
-    "overflow": "visible", "opacity": 0, "visibility": "hidden",
+    "position": "fixed",
+    "top": "80px",
+    "left": "20px",
+    "zIndex": 2000,
+    "width": "fit-content",
+    "height": "auto",
+    "maxHeight": "85vh",
+    "overflow": "visible",
+    "opacity": 0,
+    "visibility": "hidden",
     "transition": "opacity 0.3s ease-in-out, visibility 0.3s ease-in-out",
     "display": "block"
 }
 
+# 2. Stile della Finestra RADAR
 RADAR_CONTAINER_STYLE = {
-    "position": "fixed", "top": "100px", "left": "100px",
-    "width": "400px", "height": "auto", "maxHeight": "80vh",
-    "backgroundColor": "white", "borderRadius": "12px",
-    "boxShadow": "0 10px 30px rgba(0,0,0,0.3)", "zIndex": 1000,
-    "padding": "20px", "display": "none", "flexDirection": "column",
-    "cursor": "default"
+    "position": "fixed",
+    "top": "80px",
+    "right": "20px",
+    "width": "500px",
+    "height": "auto",
+    "maxHeight": "85vh",
+    "backgroundColor": "white",
+    "borderRadius": "16px",
+    "boxShadow": "0 8px 32px rgba(0, 0, 0, 0.15)",
+    "zIndex": 1000,
+    "padding": "24px",
+    "display": "flex",
+    "flexDirection": "column",
+    "transform": "translateX(130%)",
+    "transition": "transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)",
+    "border": "1px solid rgba(230, 230, 235, 0.8)"
 }
 
+# 3. Bottone Hamburger
 HAMBURGER_STYLE = {
-    "position": "fixed", "top": "20px", "left": "20px", "zIndex": 2100,
-    "backgroundColor": "white", "border": "none", "borderRadius": "50%",
-    "width": "50px", "height": "50px", "display": "flex",
-    "alignItems": "center", "justifyContent": "center", "cursor": "pointer",
-    "fontSize": "24px", "boxShadow": "0 4px 10px rgba(0,0,0,0.2)", "color": "#333"
+    "position": "fixed",
+    "top": "20px",
+    "left": "20px",
+    "zIndex": 2100,
+    "backgroundColor": "white",
+    "border": "1px solid rgba(230, 230, 235, 0.8)",
+    "borderRadius": "50%",
+    "width": "54px",
+    "height": "54px",
+    "display": "flex",
+    "alignItems": "center",
+    "justifyContent": "center",
+    "cursor": "pointer",
+    "fontSize": "24px",
+    "boxShadow": "0 4px 16px rgba(0,0,0,0.12)",
+    "color": "#2c3e50",
+    "transition": "all 0.2s ease",
+    "fontWeight": "300"
 }
 
+# 4. Backdrop
 BACKDROP_STYLE = {
-    "position": "fixed", "top": 0, "left": 0, "width": "100vw", "height": "100vh",
-    "backgroundColor": "rgba(0,0,0,0.5)", "zIndex": 1900, "display": "none",
+    "position": "fixed",
+    "top": 0,
+    "left": 0,
+    "width": "100vw",
+    "height": "100vh",
+    "backgroundColor": "rgba(0,0,0,0.5)",
+    "zIndex": 1900,
+    "display": "none",
     "backdropFilter": "blur(3px)"
 }
 
-ZOOM_CONTAINER_STYLE = {
-    "position": "fixed", "bottom": "30px", "right": "30px", "zIndex": 1000,
-    "display": "flex", "flexDirection": "column",
-    "boxShadow": "0 2px 6px rgba(0,0,0,0.3)", "borderRadius": "4px",
-    "overflow": "hidden", "backgroundColor": "white"
+# 5. PCA Container Style (Now used for the drawer)
+PCA_CONTAINER_STYLE = {
+    "position": "fixed",
+    "bottom": "0",
+    "left": "0",
+    "width": "100vw",
+    "height": "60vh",
+    "backgroundColor": "white",
+    "zIndex": 1500,
+    "boxShadow": "0 -5px 20px rgba(0,0,0,0.1)",
+    "borderTopLeftRadius": "20px",
+    "borderTopRightRadius": "20px",
+    "padding": "20px 30px",
+    "display": "none",
+    "transition": "transform 0.3s ease-in-out",
+    "boxSizing": "border-box"
 }
 
-ZOOM_BTN_STYLE = {
-    "width": "40px", "height": "40px", "backgroundColor": "white", "border": "none",
-    "borderBottom": "1px solid #eee", "cursor": "pointer", "fontSize": "20px",
-    "fontWeight": "bold", "color": "#555", "display": "flex",
-    "alignItems": "center", "justifyContent": "center"
-}
-
-# --- COMPARE MODE (tuo stile, lasciato uguale) ---
+# 6. Compare Button Style
 COMPARE_BTN_STYLE = {
     "position": "fixed",
     "top": "25px",
@@ -83,9 +136,11 @@ COMPARE_BTN_STYLE = {
     "fontSize": "14px",
     "letterSpacing": "0.5px",
     "transition": "transform 0.2s, box-shadow 0.2s",
-    "textTransform": "uppercase"
+    "textTransform": "uppercase",
+    "whiteSpace": "nowrap"
 }
 
+# 7. Compare Panel Style
 COMPARE_PANEL_STYLE = {
     "position": "fixed",
     "top": "80px",
@@ -100,27 +155,51 @@ COMPARE_PANEL_STYLE = {
     "border": "1px solid #eee"
 }
 
-# ✅ NUOVO: compare drawer diventa “tenda”
+# 8. Compare Drawer Style (Base style, height will be dynamic)
 COMPARE_SHEET_BASE_STYLE = {
     "position": "fixed",
     "bottom": "0",
     "left": "0",
     "width": "100vw",
+    "height": "65vh",  # default, will be overridden
     "backgroundColor": "white",
     "zIndex": 1500,
-    "boxShadow": "0 -5px 20px rgba(0,0,0,0.12)",
+    "boxShadow": "0 -5px 20px rgba(0,0,0,0.1)",
     "borderTopLeftRadius": "20px",
     "borderTopRightRadius": "20px",
-    "padding": "12px 22px",
+    "padding": "20px 30px",
     "display": "none",
-    "transition": "height 0.25s ease-in-out",
-    "boxSizing": "border-box",
-    "overflow": "hidden"
+    "transition": "height 0.3s ease-in-out",
+    "boxSizing": "border-box"
 }
 
-# altezze tenda
-SHEET_COLLAPSED_HEIGHT = "64px"   # focus mappa
-SHEET_EXPANDED_HEIGHT  = "60vh"   # focus plot (non taglia)
+SHEET_COLLAPSED_HEIGHT = "250px"
+SHEET_EXPANDED_HEIGHT = "65vh"
+
+# Keep old style name for backwards compatibility
+COMPARE_DRAWER_STYLE = COMPARE_SHEET_BASE_STYLE
+
+# 9. Explore Button Style (NEW)
+EXPLORE_BTN_STYLE = {
+    "position": "fixed",
+    "top": "25px",
+    "left": "315px",
+    "zIndex": 2100,
+    "background": "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
+    "color": "white",
+    "border": "none",
+    "padding": "10px 25px",
+    "borderRadius": "50px",
+    "cursor": "pointer",
+    "boxShadow": "0 4px 15px rgba(0,0,0,0.2)",
+    "fontWeight": "bold",
+    "fontSize": "14px",
+    "letterSpacing": "0.5px",
+    "transition": "transform 0.2s, box-shadow 0.2s",
+    "textTransform": "uppercase",
+    "whiteSpace": "nowrap"
+}
+
 
 app.layout = html.Div([
     # Stores
@@ -148,24 +227,17 @@ app.layout = html.Div([
         }
     ),
 
-    dcc.Store(id='compare-mode-store', data=False),
-    dcc.Store(id='selected-countries-store', data=[]),
-
-    # ✅ nuovo store per la tenda
-    dcc.Store(id='compare-sheet-store', data="collapsed"),  # collapsed | expanded
-
-    # Menu esistente
+    # UI Elements
     html.Button("☰", id="hamburger-btn", n_clicks=0, style=HAMBURGER_STYLE),
     html.Div(id="menu-backdrop", style=BACKDROP_STYLE, n_clicks=0),
-    html.Div(
-        id="menu-drawer",
-        style=MENU_CONTAINER_STYLE,
-        children=[html.Div(make_menu_layout(), style={"minWidth": "300px"})]
-    ),
 
-    # Compare UI
+    # Compare Button
     html.Button("Compare Countries", id="compare-btn", n_clicks=0, style=COMPARE_BTN_STYLE),
 
+    # Explore Correlations Button (NEW)
+    html.Button("Explore Correlations", id="explore-btn", n_clicks=0, style=EXPLORE_BTN_STYLE),
+
+    # Compare Search Panel
     html.Div(id="compare-search-panel", style=COMPARE_PANEL_STYLE, children=[
         html.Label("Search or Click on Map:", style={"fontSize": "12px", "color": "#555"}),
         dcc.Dropdown(
@@ -177,133 +249,259 @@ app.layout = html.Div([
         )
     ]),
 
-    # ✅ Compare Sheet (tenda)
-    html.Div(id="compare-drawer", style={**COMPARE_SHEET_BASE_STYLE, "height": SHEET_COLLAPSED_HEIGHT}, children=[
-        # Header tenda + controlli focus
+    # Compare Drawer
+    html.Div(id="compare-drawer", style=COMPARE_DRAWER_STYLE, children=[
         html.Div(
-            style={"display": "flex", "alignItems": "center", "justifyContent": "space-between"},
+            style={
+                "display": "flex",
+                "justifyContent": "space-between",
+                "alignItems": "center",
+                "marginBottom": "16px",
+                "padding": "0 4px",
+                "borderBottom": "2px solid rgba(102, 126, 234, 0.2)",
+                "paddingBottom": "12px"
+            },
             children=[
-                html.Div([
-                    # maniglia
-                    html.Div(style={
-                        "width": "54px", "height": "6px",
-                        "borderRadius": "999px",
-                        "backgroundColor": "#ddd",
-                        "margin": "0 auto 6px auto"
-                    }),
-                    html.Div("Comparison", style={"fontWeight": "bold", "fontSize": "14px", "color": "#333"})
-                ], style={"display": "flex", "flexDirection": "column"}),
-
-                html.Div(style={"display": "flex", "alignItems": "center"}, children=[
-                    html.Button(
-                        "FOCUS MAP",
-                        id="focus-map-btn",
-                        n_clicks=0,
-                        style={
-                            "border": "none", "borderRadius": "12px",
-                            "padding": "8px 10px", "cursor": "pointer",
-                            "backgroundColor": "#f1f1f1", "fontWeight": "bold"
-                        }
-                    ),
-                    html.Button(
-                        "FOCUS PLOT",
-                        id="focus-plot-btn",
-                        n_clicks=0,
-                        style={
-                            "border": "none", "borderRadius": "12px",
-                            "padding": "8px 10px", "cursor": "pointer",
-                            "backgroundColor": "#6f42c1", "color": "white",
-                            "fontWeight": "bold", "marginLeft": "8px"
-                        }
-                    ),
-                    html.Button(
-                        "×",
-                        id="close-compare-btn",
-                        n_clicks=0,
-                        style={
-                            "marginLeft": "10px",
-                            "border": "none", "background": "transparent",
-                            "fontSize": "22px", "cursor": "pointer"
-                        }
-                    )
-                ])
+                html.H5("Risk Comparison", style={
+                    "margin": 0,
+                    "color": "#2c3e50",
+                    "fontWeight": "600",
+                    "fontSize": "18px",
+                    "letterSpacing": "0.3px"
+                }),
+                html.Div(
+                    style={"display": "flex", "gap": "10px", "alignItems": "center"},
+                    children=[
+                        html.Button(
+                            "Focus Map",
+                            id="focus-map-btn",
+                            n_clicks=0,
+                            style={
+                                "background": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                "color": "white",
+                                "border": "none",
+                                "padding": "6px 16px",
+                                "borderRadius": "20px",
+                                "cursor": "pointer",
+                                "fontSize": "12px",
+                                "fontWeight": "600"
+                            }
+                        ),
+                        html.Button(
+                            "Focus Plot",
+                            id="focus-plot-btn",
+                            n_clicks=0,
+                            style={
+                                "background": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                "color": "white",
+                                "border": "none",
+                                "padding": "6px 16px",
+                                "borderRadius": "20px",
+                                "cursor": "pointer",
+                                "fontSize": "12px",
+                                "fontWeight": "600"
+                            }
+                        ),
+                        html.Button(
+                            "×",
+                            id="close-compare-btn",
+                            n_clicks=0,
+                            style={
+                                "background": "transparent",
+                                "border": "none",
+                                "fontSize": "28px",
+                                "cursor": "pointer",
+                                "color": "#95a5a6",
+                                "transition": "color 0.2s",
+                                "padding": "0",
+                                "width": "32px",
+                                "height": "32px",
+                                "display": "flex",
+                                "alignItems": "center",
+                                "justifyContent": "center",
+                                "borderRadius": "50%"
+                            }
+                        )
+                    ]
+                )
             ]
         ),
+        html.Div(compare_view, style={"height": "calc(100% - 60px)", "width": "100%"})
+    ]),
 
-        # Body plot (non tagliato in expanded)
+    # Explore Correlations Drawer (NEW - replaces the floating PCA)
+    html.Div(id="explore-drawer", style=PCA_CONTAINER_STYLE, children=[
         html.Div(
-            id="compare-body",
-            style={"height": f"calc(100% - {SHEET_COLLAPSED_HEIGHT})", "paddingTop": "8px", "overflowY": "auto"},
+            style={
+                "display": "flex",
+                "justifyContent": "space-between",
+                "alignItems": "center",
+                "marginBottom": "16px",
+                "padding": "0 4px",
+                "borderBottom": "2px solid rgba(17, 153, 142, 0.2)",
+                "paddingBottom": "12px"
+            },
             children=[
-                html.Div(compare_view, style={"height": "100%", "width": "100%"})
+                html.H5("PCA Risk Space - Explore Correlations", style={
+                    "margin": 0,
+                    "color": "#2c3e50",
+                    "fontWeight": "600",
+                    "fontSize": "18px",
+                    "letterSpacing": "0.3px"
+                }),
+                html.Button(
+                    "×",
+                    id="close-explore-btn",
+                    n_clicks=0,
+                    style={
+                        "background": "transparent",
+                        "border": "none",
+                        "fontSize": "28px",
+                        "cursor": "pointer",
+                        "color": "#95a5a6",
+                        "transition": "color 0.2s",
+                        "padding": "0",
+                        "width": "32px",
+                        "height": "32px",
+                        "display": "flex",
+                        "alignItems": "center",
+                        "justifyContent": "center",
+                        "borderRadius": "50%"
+                    }
+                )
             ]
+        ),
+        html.Div(
+            dcc.Graph(
+                id=pca_scatter.html_id,
+                figure=pca_scatter.update('rgb(255,100,100)', None),
+                style={"height": "calc(100% - 60px)"}
+            ),
+            style={"flex": "1", "overflow": "hidden"}
         )
     ]),
 
-    # Radar drawer esistente
-    html.Div(id="radar-drawer", style=RADAR_CONTAINER_STYLE, children=[
-        html.Div(id="radar-header",
-                 style={"display": "flex", "justifyContent": "space-between", "alignItems": "center",
-                        "marginBottom": "15px", "padding": "10px", "cursor": "move",
-                        "backgroundColor": "#f9f9f9", "borderBottom": "1px solid #eee",
-                        "borderRadius": "12px 12px 0 0"},
-                 children=[
-                     html.H5("Country Details", style={"margin": 0, "userSelect": "none"}),
-                     html.Button("×", id="close-radar-btn", n_clicks=0,
-                                 style={"border": "none", "background": "transparent", "fontSize": "20px",
-                                        "cursor": "pointer"})
-                 ]),
-        html.Div(radar_view, style={"flex": "1", "padding": "0 10px"})
-    ]),
-
-    # Zoom
-    html.Div(style=ZOOM_CONTAINER_STYLE, children=[
-        html.Button("+", id="btn-zoom-in", n_clicks=0, style=ZOOM_BTN_STYLE),
-        html.Button("-", id="btn-zoom-out", n_clicks=0, style={**ZOOM_BTN_STYLE, "borderBottom": "none"})
-    ]),
-
-    # Mappa fullscreen
+    # Menu Drawer
     html.Div(
-        style={"height": "100vh", "width": "100vw", "position": "absolute", "top": 0, "left": 0, "zIndex": 1},
+        id="menu-drawer",
+        style=MENU_CONTAINER_STYLE,
+        children=[
+            html.Div(
+                children=[make_menu_layout()],
+                style={"minWidth": "300px"}
+            )
+        ]
+    ),
+
+    # Radar Drawer
+    html.Div(
+        id="radar-drawer",
+        style=RADAR_CONTAINER_STYLE,
+        children=[
+            html.Div(
+                style={
+                    "display": "flex",
+                    "justifyContent": "space-between",
+                    "alignItems": "center",
+                    "marginBottom": "16px",
+                    "padding": "0 4px",
+                    "borderBottom": "2px solid rgba(100, 149, 237, 0.2)",
+                    "paddingBottom": "12px"
+                },
+                children=[
+                    html.H5("Country Details", style={
+                        "margin": 0,
+                        "color": "#2c3e50",
+                        "fontWeight": "600",
+                        "fontSize": "18px",
+                        "letterSpacing": "0.3px"
+                    }),
+                    html.Button(
+                        "×",
+                        id="close-radar-btn",
+                        n_clicks=0,
+                        style={
+                            "background": "transparent",
+                            "border": "none",
+                            "fontSize": "28px",
+                            "cursor": "pointer",
+                            "color": "#95a5a6",
+                            "transition": "color 0.2s",
+                            "padding": "0",
+                            "width": "32px",
+                            "height": "32px",
+                            "display": "flex",
+                            "alignItems": "center",
+                            "justifyContent": "center",
+                            "borderRadius": "50%"
+                        }
+                    )
+                ]
+            ),
+            html.Div(radar_view, style={"flex": "1"})
+        ]
+    ),
+
+    # Mappa Fullscreen
+    html.Div(
+        style={
+            "height": "100vh",
+            "width": "100vw",
+            "position": "absolute",
+            "top": 0,
+            "left": 0,
+            "zIndex": 1
+        },
         children=[map_view]
     )
 ])
 
 
-# ---------------- MENU LOGIC (come tuo) ----------------
+# --- CALLBACKS ---
 
+# A. Menu Logic
 @app.callback(
     Output("menu-state-store", "data"),
-    [Input("hamburger-btn", "n_clicks"), Input("menu-backdrop", "n_clicks"), Input("select-risk-variable", "value")],
+    [Input("hamburger-btn", "n_clicks"),
+     Input("menu-backdrop", "n_clicks"),
+     Input("select-risk-variable", "value")],
     [State("menu-state-store", "data")]
 )
 def update_menu_state(n_hamburger, n_backdrop, risk_value, is_open):
     trigger = ctx.triggered_id
-    if not trigger: return False
-    if trigger == "select-risk-variable": return False
-    if trigger == "hamburger-btn": return not is_open
-    if trigger == "menu-backdrop": return False
+    if not trigger:
+        return False
+    if trigger == "select-risk-variable":
+        return False
+    if trigger == "hamburger-btn":
+        return not is_open
+    if trigger == "menu-backdrop":
+        return False
     return is_open
 
 
 @app.callback(
-    [Output("menu-drawer", "style"), Output("menu-backdrop", "style")],
+    [Output("menu-drawer", "style"),
+     Output("menu-backdrop", "style")],
     Input("menu-state-store", "data")
 )
 def update_menu_visuals(is_open):
     drawer_style = MENU_CONTAINER_STYLE.copy()
     backdrop_style = BACKDROP_STYLE.copy()
     if is_open:
-        drawer_style.update({"opacity": 1, "visibility": "visible", "transform": "translateY(0)"})
+        drawer_style["opacity"] = 1
+        drawer_style["visibility"] = "visible"
+        drawer_style["transform"] = "translateY(0)"
         backdrop_style["display"] = "block"
     else:
-        drawer_style.update({"opacity": 0, "visibility": "hidden", "transform": "translateY(-10px)"})
+        drawer_style["opacity"] = 0
+        drawer_style["visibility"] = "hidden"
+        drawer_style["transform"] = "translateY(-10px)"
         backdrop_style["display"] = "none"
     return drawer_style, backdrop_style
 
 
-# ---------------- COMPARE MODE ----------------
-
+# B. Compare Mode Logic (Updated with sheet state and focus buttons)
 @app.callback(
     [Output("compare-mode-store", "data"),
      Output("compare-search-panel", "style"),
@@ -323,85 +521,90 @@ def compare_controller(n_compare, n_close, n_focus_map, n_focus_plot, is_active,
     trigger = ctx.triggered_id
     if not trigger:
         return (dash.no_update,) * 7
-
+    
     search_style = COMPARE_PANEL_STYLE.copy()
     drawer_style = COMPARE_SHEET_BASE_STYLE.copy()
     btn_style = COMPARE_BTN_STYLE.copy()
-
-    # default: lascia sheet_state com'è
+    
+    # default: leave sheet_state as is
     new_sheet_state = sheet_state or "collapsed"
-
-    # ---- CHIUSURA compare ----
+    
+    # ---- CLOSE compare ----
     if trigger == "close-compare-btn":
         search_style["display"] = "none"
         drawer_style["display"] = "none"
         drawer_style["height"] = SHEET_COLLAPSED_HEIGHT
         btn_style["background"] = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
         return False, search_style, drawer_style, btn_style, "Compare Countries", [], "collapsed"
-
+    
     # ---- TOGGLE compare ----
     if trigger == "compare-btn":
         new_state = not is_active
-
         if new_state:
-            # apertura: mostra panel + sheet (collassata)
+            # opening: show panel + sheet (collapsed)
             search_style["display"] = "block"
             drawer_style["display"] = "block"
             drawer_style["height"] = SHEET_COLLAPSED_HEIGHT
             btn_style["background"] = "linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)"
             return True, search_style, drawer_style, btn_style, "Stop Comparing", dash.no_update, "collapsed"
         else:
-            # chiusura: nascondi tutto e reset selezione
+            # closing: hide everything and reset selection
             search_style["display"] = "none"
             drawer_style["display"] = "none"
             drawer_style["height"] = SHEET_COLLAPSED_HEIGHT
             btn_style["background"] = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
             return False, search_style, drawer_style, btn_style, "Compare Countries", [], "collapsed"
-
-    # ---- FOCUS (solo se compare è attivo) ----
+    
+    # ---- FOCUS (only if compare is active) ----
     if not is_active:
         return (dash.no_update,) * 7
-
+    
     if trigger == "focus-plot-btn":
         new_sheet_state = "expanded"
     elif trigger == "focus-map-btn":
         new_sheet_state = "collapsed"
-
-    # applichiamo lo stato sheet al drawer
+    
+    # apply sheet state to drawer
     drawer_style["display"] = "block"
     drawer_style["height"] = SHEET_EXPANDED_HEIGHT if new_sheet_state == "expanded" else SHEET_COLLAPSED_HEIGHT
-
-    # quando focus, non tocchiamo compare-mode / btn / selezione
-    # ma dobbiamo restituire i valori correnti (no_update non va bene perché stiamo già ritornando stili)
+    
+    # when focusing, don't touch compare-mode / btn / selection
     search_style["display"] = "block"
     btn_style["background"] = "linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)"
-
     return True, search_style, drawer_style, btn_style, "Stop Comparing", dash.no_update, new_sheet_state
 
 
+# B2. Explore Mode Logic (NEW)
 @app.callback(
-    Output("compare-drawer", "style", allow_duplicate=True),
-    [Input("compare-sheet-store", "data"),
-     Input("compare-mode-store", "data")],
-    State("compare-drawer", "style"),
-    prevent_initial_call=True
+    [Output("explore-mode-store", "data"),
+     Output("explore-drawer", "style"),
+     Output("explore-btn", "style"),
+     Output("explore-btn", "children")],
+    [Input("explore-btn", "n_clicks"),
+     Input("close-explore-btn", "n_clicks")],
+    [State("explore-mode-store", "data")]
 )
-def apply_compare_sheet_style(sheet_state, compare_on, current_style):
-    if current_style is None:
-        current_style = COMPARE_SHEET_BASE_STYLE.copy()
+def toggle_explore_mode(btn_click, close_click, is_active):
+    trigger = ctx.triggered_id
+    if not trigger:
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
-    new_style = current_style.copy()
+    new_state = not is_active if trigger == "explore-btn" else False
+    
+    drawer_style = PCA_CONTAINER_STYLE.copy()
+    btn_style = EXPLORE_BTN_STYLE.copy()
 
-    # se compare off, non toccare (lo gestisce toggle_compare_mode)
-    if not compare_on:
-        return new_style
+    if new_state:
+        drawer_style["display"] = "flex"
+        drawer_style["flexDirection"] = "column"
+        btn_style["background"] = "linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)"
+        return True, drawer_style, btn_style, "Close Explorer"
+    else:
+        drawer_style["display"] = "none"
+        return False, drawer_style, EXPLORE_BTN_STYLE, "Explore Correlations"
 
-    new_style["display"] = "block"
-    new_style["height"] = SHEET_EXPANDED_HEIGHT if sheet_state == "expanded" else SHEET_COLLAPSED_HEIGHT
-    return new_style
 
-
-# B2. Gestione Selezione (Mappa + Dropdown) — COME TUO, ma robusto
+# C. Manage Country Selection (Dropdown + Map)
 @app.callback(
     Output("country-selector", "value"),
     [Input(map_view.html_id, "clickData"),
@@ -410,26 +613,28 @@ def apply_compare_sheet_style(sheet_state, compare_on, current_style):
 )
 def manage_selection_ui(map_click, dropdown_value, compare_mode):
     trigger = ctx.triggered_id
-
-    # click su mappa quando compare OFF => ignoralo
-    if (not compare_mode) and trigger == map_view.html_id:
+    
+    if not compare_mode and trigger == map_view.html_id:
         return dash.no_update
 
-    # dropdown = fonte di verità
     if trigger == "country-selector":
         return dropdown_value
 
-    # mappa = toggle
     if trigger == map_view.html_id and map_click:
         clicked_country = map_click['points'][0]['location']
         current_list = dropdown_value or []
+        
         if clicked_country in current_list:
-            return [c for c in current_list if c != clicked_country]
-        return current_list + [clicked_country]
+            new_list = [c for c in current_list if c != clicked_country]
+        else:
+            new_list = current_list + [clicked_country]
+        
+        return new_list
 
     return dash.no_update
 
 
+# D. Sync Dropdown to Store
 @app.callback(
     Output("selected-countries-store", "data", allow_duplicate=True),
     Input("country-selector", "value"),
@@ -439,6 +644,7 @@ def sync_store(value):
     return value or []
 
 
+# E. Update Compare View
 @app.callback(
     Output(compare_view.html_id, "figure"),
     Input("selected-countries-store", "data")
@@ -447,24 +653,24 @@ def update_compare_view(selected_countries):
     return compare_view.update(selected_countries)
 
 
-# ---------------- RADAR VISIBILITY (come tuo, ma NON resetta clickData) ----------------
-
+# F. Radar Visibility Logic (Modified for Compare Mode and Explore Mode)
 @app.callback(
     [Output("radar-state-store", "data"),
      Output(map_view.html_id, "clickData")],
     [Input(map_view.html_id, "clickData"),
      Input("close-radar-btn", "n_clicks")],
     [State("radar-state-store", "data"),
-     State("compare-mode-store", "data")]
+     State("compare-mode-store", "data"),
+     State("explore-mode-store", "data")]
 )
-def toggle_radar_visibility(map_click, close_click, is_open, is_compare_mode):
+def toggle_radar_visibility(map_click, close_click, is_open, is_compare_mode, is_explore_mode):
     trigger = ctx.triggered_id
     if not trigger:
         return is_open, dash.no_update
 
-    # Se compare mode attiva: radar chiuso, MA non resettare clickData
-    if is_compare_mode:
-        return False, dash.no_update
+    # If compare mode or explore mode is active, radar stays closed
+    if is_compare_mode or is_explore_mode:
+        return False, dash.no_update  # Changed from None to dash.no_update
 
     if trigger == "close-radar-btn":
         return False, None
@@ -477,32 +683,58 @@ def toggle_radar_visibility(map_click, close_click, is_open, is_compare_mode):
 
 @app.callback(
     Output("radar-drawer", "style"),
-    Input("radar-state-store", "data"),
-    State("radar-drawer", "style")
+    Input("radar-state-store", "data")
 )
-def update_radar_visuals(is_open, current_style):
-    if current_style is None:
-        current_style = RADAR_CONTAINER_STYLE.copy()
-    new_style = current_style.copy()
+def update_radar_visuals(is_open):
+    style = RADAR_CONTAINER_STYLE.copy()
     if is_open:
-        new_style["display"] = "flex"
-        new_style["transform"] = "none"
+        style["transform"] = "translateX(0)"
     else:
-        new_style["display"] = "none"
-    return new_style
+        style["transform"] = "translateX(130%)"
+    return style
 
 
-# ---------------- MAPPA / RADAR DATA ----------------
+# G. Store Brushed Countries from PCA
+@app.callback(
+    Output("brushed-countries-store", "data"),
+    [Input(pca_scatter.html_id, "selectedData"),
+     Input("explore-mode-store", "data")],
+    [State("explore-mode-store", "data")]
+)
+def store_brushed_countries(selected_data, explore_mode_change, explore_mode_state):
+    trigger = ctx.triggered_id
+    
+    # Clear selection when explore mode is closed
+    if trigger == "explore-mode-store" and not explore_mode_state:
+        return []
+    
+    # Update selection when points are selected
+    if trigger == pca_scatter.html_id:
+        if selected_data is None or 'points' not in selected_data:
+            return []
+        
+        selected_indices = [point['pointIndex'] for point in selected_data['points']]
+        brushed_countries = df.iloc[selected_indices]['Country'].tolist() if 'Country' in df.columns else []
+        
+        return brushed_countries
+    
+    return dash.no_update
 
+
+# H. Map Update (with Brushed and Selected Countries)
 @app.callback(
     Output(map_view.html_id, "figure"),
     [Input("select-risk-variable", "value"),
+     Input("brushed-countries-store", "data"),
      Input("selected-countries-store", "data")]
 )
-def update_map(selected_risk, selected_countries):
-    return map_view.update(selected_risk, selected_countries)
+def update_map(selected_risk, brushed_countries, selected_countries):
+    # Combine both lists for highlighting
+    all_highlighted = list(set(brushed_countries + selected_countries))
+    return map_view.update(selected_risk, all_highlighted)
 
 
+# I. Radar Data Update
 @app.callback(
     Output(radar_view.html_id, "figure"),
     [Input(map_view.html_id, "clickData"),
@@ -513,31 +745,22 @@ def update_radar_data(click_data, selected_risk):
     return radar_view.update(country, selected_risk)
 
 
-# ---------------- INFO WINDOW (come tuo) ----------------
-
+# J. PCA Graph Update (when in explore mode)
 @app.callback(
-    [Output("info-card", "style"), Output("info-backdrop", "style")],
-    [Input("open-info-btn", "n_clicks"), Input("info-backdrop", "n_clicks")],
-    [State("info-card", "style"), State("info-backdrop", "style")],
-    prevent_initial_call=True
+    Output(pca_scatter.html_id, "figure"),
+    [Input("explore-mode-store", "data")],
+    [State(pca_scatter.html_id, "selectedData")]
 )
-def toggle_info_window(btn_clicks, backdrop_clicks, card_style, backdrop_style):
-    if card_style is None: card_style = {}
-    if backdrop_style is None: backdrop_style = {}
-    ctx_id = ctx.triggered_id
-    new_card, new_backdrop = card_style.copy(), backdrop_style.copy()
-    is_visible = new_card.get('display', 'none') == 'block'
-
-    if ctx_id == "open-info-btn":
-        if not is_visible:
-            new_card['display'] = 'block'; new_backdrop['display'] = 'block'
-        else:
-            new_card['display'] = 'none'; new_backdrop['display'] = 'none'
-    elif ctx_id == "info-backdrop":
-        new_card['display'] = 'none'; new_backdrop['display'] = 'none'
-
-    return new_card, new_backdrop
+def update_pca_graph(explore_mode, selected_data):
+    trigger = ctx.triggered_id
+    
+    # Only update when explore mode changes, not when selection changes
+    if trigger == "explore-mode-store":
+        selected_color = "rgb(17, 153, 142)"  # Matching the explore button color
+        return pca_scatter.update(selected_color, selected_data)
+    
+    return dash.no_update
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True, port=8050)
+    app.run_server(debug=True)
