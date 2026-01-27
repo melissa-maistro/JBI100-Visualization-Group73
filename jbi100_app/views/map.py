@@ -24,21 +24,38 @@ class MapView(html.Div):
                 dcc.Graph(
                     id=self.html_id,
                     style={'height': '100vh', 'width': '100%', 'display': 'block'},
-                    config={'displayModeBar': False, 'scrollZoom': True}
+                    config={
+                        # Show toolbar
+                        'displayModeBar': True,
+                        
+                        # Hide Plotly logo
+                        'displaylogo': False,
+                        
+                        # Remove unnecessary buttons, keep only Zoom and Pan
+                        'modeBarButtonsToRemove': [
+                            'select2d', 'lasso2d', 'autoScale2d',
+                            'resetScale2d', 'hoverClosestGeo',
+                            'hoverCompareCartesian', 'toggleSpikelines',
+                            'toImage', 'resetGeo'
+                        ],
+                        
+                        # Enable scroll zoom
+                        'scrollZoom': True
+                    }
                 )
             ],
         )
 
-    def update(self, selected_risk, brushed_countries=None):
+    def update(self, selected_risk, highlight_countries=None):
         """
-        Update map with selected risk variable and highlight brushed countries
+        Update map with selected risk variable and highlight selected countries
         
         Args:
             selected_risk: The risk variable to display
-            brushed_countries: List of country names to highlight in red (from PCA brushing)
+            highlight_countries: List of country names to highlight (from PCA brushing or Compare mode)
         """
-        if brushed_countries is None:
-            brushed_countries = []
+        if highlight_countries is None:
+            highlight_countries = []
         
         # Verify the selected risk exists in the dataframe
         if selected_risk not in self.df.columns:
@@ -64,23 +81,24 @@ class MapView(html.Div):
             marker_opacity=0.85
         )
 
-        # Add elegant overlay for brushed countries
-        if brushed_countries:
-            brushed_df = self.df[self.df['Country'].isin(brushed_countries)]
+        # Add elegant overlay for highlighted countries (PCA brushing or Compare selection)
+        if highlight_countries:
+            highlight_df = self.df[self.df['Country'].isin(highlight_countries)]
             
-            # Create a pulsing effect with a vibrant accent color
-            fig.add_trace(go.Choropleth(
-                locations=brushed_df['Country'],
-                locationmode='country names',
-                z=[1] * len(brushed_df),  # Dummy values for uniform color
-                colorscale=[[0, 'rgba(100, 149, 237, 0.5)'], [1, 'rgba(100, 149, 237, 0.5)']],  # Cornflower blue
-                showscale=False,
-                marker_line_color='rgba(65, 105, 225, 1)',  # Royal blue border
-                marker_line_width=3,
-                marker_opacity=0.65,
-                hovertemplate='<b>%{location}</b><br><i>Selected from PCA</i><extra></extra>',
-                name='Selected Countries'
-            ))
+            if not highlight_df.empty:
+                # Add beautiful blue overlay with prominent border
+                fig.add_trace(go.Choropleth(
+                    locations=highlight_df['Country'],
+                    locationmode='country names',
+                    z=[1] * len(highlight_df),  # Dummy values for uniform color
+                    colorscale=[[0, 'rgba(100, 149, 237, 0.5)'], [1, 'rgba(100, 149, 237, 0.5)']],  # Cornflower blue
+                    showscale=False,
+                    marker_line_color='rgba(65, 105, 225, 1)',  # Royal blue border
+                    marker_line_width=3,
+                    marker_opacity=0.65,
+                    hovertemplate='<b>%{location}</b><br><i>Selected</i><extra></extra>',
+                    name='Selected Countries'
+                ))
 
         # Update layout
         fig.update_layout(
@@ -98,7 +116,8 @@ class MapView(html.Div):
             title=dict(
                 text=f"Global Risk Map: {selected_risk}",
                 y=0.95,
-                x=0.5,
+                x=0.86,  # Positioned to the right
+                font=dict(family="Helvetica, Arial, sans-serif", size=20, color="#333"),
                 xanchor='center',
                 yanchor='top',
                 automargin=False,
@@ -106,9 +125,12 @@ class MapView(html.Div):
             ),
             coloraxis_colorbar=dict(
                 title="Risk Level",
-                x=0.11, xanchor="center",
-                y=0.5, yanchor="middle",
-                len=0.4, thickness=15
+                x=0.11,
+                xanchor="center",
+                y=0.5,
+                yanchor="middle",
+                len=0.4,
+                thickness=15
             ),
             hoverlabel=dict(
                 bgcolor="rgba(255, 255, 255, 0.95)",
