@@ -28,7 +28,8 @@ def generate_control_card():
                     {'label': ' Economic Resilience', 'value': 'Economic Risk'},
                     {'label': ' Social Fragility', 'value': 'Social Risk'},
                     {'label': ' Infrastructure Constraints', 'value': 'Infrastructure Risk'},
-                    {'label': ' Demographic Stress', 'value': 'Demographic Risk'}
+                    {'label': ' Demographic Stress', 'value': 'Demographic Risk'},
+                    {'label': ' Transport Constraint (Intervention)', 'value': 'Transport Constraint'}
                 ],
                 value='Total Vulnerability',
                 labelStyle={'display': 'block', 'marginBottom': '8px', 'fontSize': '13px'},

@@ -82,7 +82,9 @@ class MapView(html.Div):
                 ))
 
         fig.update_layout(
-            dragmode=False,
+            dragmode="pan",
+            # Preserve zoom/pan across updates unless the selected layer changes
+            uirevision=selected_risk,
             margin=dict(l=0, r=0, t=0, b=0, pad=0, autoexpand=False),
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
