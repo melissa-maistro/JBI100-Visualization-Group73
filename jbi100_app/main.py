@@ -8,6 +8,8 @@ from jbi100_app.views.compare import CompareView
 from jbi100_app.data import get_data
 import dash
 
+# test
+
 app = Dash(__name__)
 app.title = "Humanitarian Risk Viz"
 
