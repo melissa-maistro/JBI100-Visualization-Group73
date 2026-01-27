@@ -134,7 +134,8 @@ COMPARE_BTN_STYLE = {
     "fontSize": "14px",
     "letterSpacing": "0.5px",
     "transition": "transform 0.2s, box-shadow 0.2s",
-    "textTransform": "uppercase"
+    "textTransform": "uppercase",
+    "whiteSpace": "nowrap"
 }
 
 # 7. Compare Panel Style
@@ -152,29 +153,35 @@ COMPARE_PANEL_STYLE = {
     "border": "1px solid #eee"
 }
 
-# 8. Compare Drawer Style
-COMPARE_DRAWER_STYLE = {
+# 8. Compare Drawer Style (Base style, height will be dynamic)
+COMPARE_SHEET_BASE_STYLE = {
     "position": "fixed",
     "bottom": "0",
     "left": "0",
     "width": "100vw",
-    "height": "230px",
+    "height": "65vh",  # default, will be overridden
     "backgroundColor": "white",
     "zIndex": 1500,
     "boxShadow": "0 -5px 20px rgba(0,0,0,0.1)",
     "borderTopLeftRadius": "20px",
     "borderTopRightRadius": "20px",
-    "padding": "15px 30px",
+    "padding": "20px 30px",
     "display": "none",
-    "transition": "transform 0.3s ease-in-out",
+    "transition": "height 0.3s ease-in-out",
     "boxSizing": "border-box"
 }
+
+SHEET_COLLAPSED_HEIGHT = "250px"
+SHEET_EXPANDED_HEIGHT = "65vh"
+
+# Keep old style name for backwards compatibility
+COMPARE_DRAWER_STYLE = COMPARE_SHEET_BASE_STYLE
 
 # 9. Explore Button Style (NEW)
 EXPLORE_BTN_STYLE = {
     "position": "fixed",
-    "top": "70px",
-    "left": "90px",
+    "top": "25px",
+    "left": "315px",
     "zIndex": 2100,
     "background": "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
     "color": "white",
@@ -188,7 +195,7 @@ EXPLORE_BTN_STYLE = {
     "letterSpacing": "0.5px",
     "transition": "transform 0.2s, box-shadow 0.2s",
     "textTransform": "uppercase",
-    "width": "185px"
+    "whiteSpace": "nowrap"
 }
 
 
@@ -201,6 +208,7 @@ app.layout = html.Div([
     dcc.Store(id='compare-mode-store', data=False),
     dcc.Store(id='selected-countries-store', data=[]),
     dcc.Store(id='explore-mode-store', data=False),  # NEW
+    dcc.Store(id='compare-sheet-store', data='collapsed'),  # NEW for sheet state
     
     # Invisible overlay to capture clicks anywhere on screen
     html.Div(
@@ -241,10 +249,82 @@ app.layout = html.Div([
 
     # Compare Drawer
     html.Div(id="compare-drawer", style=COMPARE_DRAWER_STYLE, children=[
-        html.Button("×", id="close-compare-btn", n_clicks=0,
-                    style={"float": "right", "border": "none", "background": "transparent", 
-                           "fontSize": "20px", "cursor": "pointer"}),
-        html.Div(compare_view, style={"height": "100%", "width": "100%", "marginTop": "-20px"})
+        html.Div(
+            style={
+                "display": "flex",
+                "justifyContent": "space-between",
+                "alignItems": "center",
+                "marginBottom": "16px",
+                "padding": "0 4px",
+                "borderBottom": "2px solid rgba(102, 126, 234, 0.2)",
+                "paddingBottom": "12px"
+            },
+            children=[
+                html.H5("Risk Comparison", style={
+                    "margin": 0,
+                    "color": "#2c3e50",
+                    "fontWeight": "600",
+                    "fontSize": "18px",
+                    "letterSpacing": "0.3px"
+                }),
+                html.Div(
+                    style={"display": "flex", "gap": "10px", "alignItems": "center"},
+                    children=[
+                        html.Button(
+                            "Focus Map",
+                            id="focus-map-btn",
+                            n_clicks=0,
+                            style={
+                                "background": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                "color": "white",
+                                "border": "none",
+                                "padding": "6px 16px",
+                                "borderRadius": "20px",
+                                "cursor": "pointer",
+                                "fontSize": "12px",
+                                "fontWeight": "600"
+                            }
+                        ),
+                        html.Button(
+                            "Focus Plot",
+                            id="focus-plot-btn",
+                            n_clicks=0,
+                            style={
+                                "background": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                                "color": "white",
+                                "border": "none",
+                                "padding": "6px 16px",
+                                "borderRadius": "20px",
+                                "cursor": "pointer",
+                                "fontSize": "12px",
+                                "fontWeight": "600"
+                            }
+                        ),
+                        html.Button(
+                            "×",
+                            id="close-compare-btn",
+                            n_clicks=0,
+                            style={
+                                "background": "transparent",
+                                "border": "none",
+                                "fontSize": "28px",
+                                "cursor": "pointer",
+                                "color": "#95a5a6",
+                                "transition": "color 0.2s",
+                                "padding": "0",
+                                "width": "32px",
+                                "height": "32px",
+                                "display": "flex",
+                                "alignItems": "center",
+                                "justifyContent": "center",
+                                "borderRadius": "50%"
+                            }
+                        )
+                    ]
+                )
+            ]
+        ),
+        html.Div(compare_view, style={"height": "calc(100% - 60px)", "width": "100%"})
     ]),
 
     # Explore Correlations Drawer (NEW - replaces the floating PCA)
@@ -419,38 +499,77 @@ def update_menu_visuals(is_open):
     return drawer_style, backdrop_style
 
 
-# B. Compare Mode Logic
+# B. Compare Mode Logic (Updated with sheet state and focus buttons)
 @app.callback(
     [Output("compare-mode-store", "data"),
      Output("compare-search-panel", "style"),
      Output("compare-drawer", "style"),
      Output("compare-btn", "style"),
      Output("compare-btn", "children"),
-     Output("selected-countries-store", "data")],
+     Output("selected-countries-store", "data"),
+     Output("compare-sheet-store", "data")],
     [Input("compare-btn", "n_clicks"),
-     Input("close-compare-btn", "n_clicks")],
-    [State("compare-mode-store", "data")]
+     Input("close-compare-btn", "n_clicks"),
+     Input("focus-map-btn", "n_clicks"),
+     Input("focus-plot-btn", "n_clicks")],
+    [State("compare-mode-store", "data"),
+     State("compare-sheet-store", "data")]
 )
-def toggle_compare_mode(btn_click, close_click, is_active):
+def compare_controller(n_compare, n_close, n_focus_map, n_focus_plot, is_active, sheet_state):
     trigger = ctx.triggered_id
     if not trigger:
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
-
-    new_state = not is_active if trigger == "compare-btn" else False
+        return (dash.no_update,) * 7
     
     search_style = COMPARE_PANEL_STYLE.copy()
-    drawer_style = COMPARE_DRAWER_STYLE.copy()
+    drawer_style = COMPARE_SHEET_BASE_STYLE.copy()
     btn_style = COMPARE_BTN_STYLE.copy()
-
-    if new_state:
-        search_style["display"] = "block"
-        drawer_style["display"] = "block"
-        btn_style["background"] = "linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)"
-        return True, search_style, drawer_style, btn_style, "Stop Comparing", dash.no_update
-    else:
+    
+    # default: leave sheet_state as is
+    new_sheet_state = sheet_state or "collapsed"
+    
+    # ---- CLOSE compare ----
+    if trigger == "close-compare-btn":
         search_style["display"] = "none"
         drawer_style["display"] = "none"
-        return False, search_style, drawer_style, COMPARE_BTN_STYLE, "Compare Countries", []
+        drawer_style["height"] = SHEET_COLLAPSED_HEIGHT
+        btn_style["background"] = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+        return False, search_style, drawer_style, btn_style, "Compare Countries", [], "collapsed"
+    
+    # ---- TOGGLE compare ----
+    if trigger == "compare-btn":
+        new_state = not is_active
+        if new_state:
+            # opening: show panel + sheet (collapsed)
+            search_style["display"] = "block"
+            drawer_style["display"] = "block"
+            drawer_style["height"] = SHEET_COLLAPSED_HEIGHT
+            btn_style["background"] = "linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)"
+            return True, search_style, drawer_style, btn_style, "Stop Comparing", dash.no_update, "collapsed"
+        else:
+            # closing: hide everything and reset selection
+            search_style["display"] = "none"
+            drawer_style["display"] = "none"
+            drawer_style["height"] = SHEET_COLLAPSED_HEIGHT
+            btn_style["background"] = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+            return False, search_style, drawer_style, btn_style, "Compare Countries", [], "collapsed"
+    
+    # ---- FOCUS (only if compare is active) ----
+    if not is_active:
+        return (dash.no_update,) * 7
+    
+    if trigger == "focus-plot-btn":
+        new_sheet_state = "expanded"
+    elif trigger == "focus-map-btn":
+        new_sheet_state = "collapsed"
+    
+    # apply sheet state to drawer
+    drawer_style["display"] = "block"
+    drawer_style["height"] = SHEET_EXPANDED_HEIGHT if new_sheet_state == "expanded" else SHEET_COLLAPSED_HEIGHT
+    
+    # when focusing, don't touch compare-mode / btn / selection
+    search_style["display"] = "block"
+    btn_style["background"] = "linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)"
+    return True, search_style, drawer_style, btn_style, "Stop Comparing", dash.no_update, new_sheet_state
 
 
 # B2. Explore Mode Logic (NEW)
