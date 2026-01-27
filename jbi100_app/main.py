@@ -5,6 +5,7 @@ from jbi100_app.views.map import MapView
 from jbi100_app.views.radar import RadarView
 from jbi100_app.views.scatterplot import Scatterplot
 from jbi100_app.views.compare import CompareView
+from jbi100_app.views.transport_rank import TransportRankView
 from jbi100_app.data import get_data
 import dash
 
@@ -17,6 +18,7 @@ df = get_data()
 map_view = MapView("Map View", df)
 radar_view = RadarView("Radar View", df)
 compare_view = CompareView("Compare View", df)
+transport_rank_view = TransportRankView("Transport Rank", df)
 
 pca_scatter = Scatterplot(
     name="PCA Risk Space",
@@ -27,6 +29,8 @@ pca_scatter = Scatterplot(
 
 # Lista paesi per il dropdown
 all_countries = sorted(df['Country'].unique().tolist())
+transport_slider_max = 25
+transport_slider_marks = {5: "5", 10: "10", 15: "15", 20: "20", 25: "25"}
 
 # --- STILI CSS ---
 
@@ -121,10 +125,6 @@ PCA_CONTAINER_STYLE = {
 
 # 6. Compare Button Style
 COMPARE_BTN_STYLE = {
-    "position": "fixed",
-    "top": "25px",
-    "left": "90px",
-    "zIndex": 2100,
     "background": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
     "color": "white",
     "border": "none",
@@ -181,10 +181,6 @@ COMPARE_DRAWER_STYLE = COMPARE_SHEET_BASE_STYLE
 
 # 9. Explore Button Style (NEW)
 EXPLORE_BTN_STYLE = {
-    "position": "fixed",
-    "top": "25px",
-    "left": "315px",
-    "zIndex": 2100,
     "background": "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
     "color": "white",
     "border": "none",
@@ -200,6 +196,50 @@ EXPLORE_BTN_STYLE = {
     "whiteSpace": "nowrap"
 }
 
+# 10. Transport Button Style (NEW)
+TRANSPORT_BTN_STYLE = {
+    "background": "linear-gradient(135deg, #f7971e 0%, #ffd200 100%)",
+    "color": "#2c3e50",
+    "border": "none",
+    "padding": "10px 22px",
+    "borderRadius": "50px",
+    "cursor": "pointer",
+    "boxShadow": "0 4px 15px rgba(0,0,0,0.2)",
+    "fontWeight": "bold",
+    "fontSize": "13px",
+    "letterSpacing": "0.4px",
+    "transition": "transform 0.2s, box-shadow 0.2s",
+    "textTransform": "uppercase",
+    "whiteSpace": "nowrap"
+}
+
+# 10.5 Top Button Row Style (NEW)
+TOP_BUTTON_ROW_STYLE = {
+    "position": "fixed",
+    "top": "25px",
+    "left": "90px",
+    "zIndex": 2100,
+    "display": "flex",
+    "gap": "14px",
+    "alignItems": "center"
+}
+
+# 11. Transport Drawer Style (NEW)
+TRANSPORT_DRAWER_STYLE = {
+    "position": "fixed",
+    "top": "90px",
+    "right": "20px",
+    "width": "360px",
+    "height": "60vh",
+    "backgroundColor": "white",
+    "borderRadius": "16px",
+    "boxShadow": "0 8px 32px rgba(0, 0, 0, 0.15)",
+    "zIndex": 1800,
+    "padding": "18px 20px",
+    "display": "none",
+    "border": "1px solid rgba(230, 230, 235, 0.8)"
+}
+
 
 app.layout = html.Div([
     # Stores
@@ -211,6 +251,8 @@ app.layout = html.Div([
     dcc.Store(id='selected-countries-store', data=[]),
     dcc.Store(id='explore-mode-store', data=False),  # NEW
     dcc.Store(id='compare-sheet-store', data='collapsed'),  # NEW for sheet state
+    dcc.Store(id='transport-mode-store', data=False),  # NEW
+    dcc.Store(id='transport-selected-store', data=[]),  # NEW
     
     # Invisible overlay to capture clicks anywhere on screen
     html.Div(
@@ -231,11 +273,16 @@ app.layout = html.Div([
     html.Button("☰", id="hamburger-btn", n_clicks=0, style=HAMBURGER_STYLE),
     html.Div(id="menu-backdrop", style=BACKDROP_STYLE, n_clicks=0),
 
-    # Compare Button
-    html.Button("Compare Countries", id="compare-btn", n_clicks=0, style=COMPARE_BTN_STYLE),
-
-    # Explore Correlations Button (NEW)
-    html.Button("Explore Correlations", id="explore-btn", n_clicks=0, style=EXPLORE_BTN_STYLE),
+    # Top Action Buttons
+    html.Div(
+        id="top-action-buttons",
+        style=TOP_BUTTON_ROW_STYLE,
+        children=[
+            html.Button("Compare Countries", id="compare-btn", n_clicks=0, style=COMPARE_BTN_STYLE),
+            html.Button("Explore Correlations", id="explore-btn", n_clicks=0, style=EXPLORE_BTN_STYLE),
+            html.Button("Transport Focus", id="transport-btn", n_clicks=0, style=TRANSPORT_BTN_STYLE),
+        ]
+    ),
 
     # Compare Search Panel
     html.Div(id="compare-search-panel", style=COMPARE_PANEL_STYLE, children=[
@@ -381,6 +428,57 @@ app.layout = html.Div([
         )
     ]),
 
+    # Transport Drawer (NEW)
+    html.Div(id="transport-drawer", style=TRANSPORT_DRAWER_STYLE, children=[
+        html.Div(
+            style={
+                "display": "flex",
+                "alignItems": "center",
+                "marginBottom": "12px",
+                "padding": "0 4px",
+                "borderBottom": "2px solid rgba(247, 151, 30, 0.25)",
+                "paddingBottom": "10px"
+            },
+            children=[
+                html.H5("Transport Intervention Finder", style={
+                    "margin": 0,
+                    "color": "#2c3e50",
+                    "fontWeight": "600",
+                    "fontSize": "16px",
+                    "letterSpacing": "0.3px"
+                })
+            ]
+        ),
+        html.Div(
+            className="js-no-drag",
+            children=[
+                html.Label("Show top N constrained countries:", style={"fontSize": "12px", "color": "#555"}),
+                dcc.Slider(
+                    id="transport-topn-slider",
+                    min=5,
+                    max=transport_slider_max,
+                    step=5,
+                    value=15,
+                    marks=transport_slider_marks,
+                    tooltip={"placement": "bottom", "always_visible": False}
+                ),
+            ],
+            style={"marginBottom": "10px"}
+        ),
+        html.Div(
+            className="js-no-drag",
+            children=[
+                dcc.Graph(
+                    id=transport_rank_view.html_id,
+                    figure=transport_rank_view.update(15, []),
+                    config={"displayModeBar": False},
+                    style={"height": "100%"}
+                )
+            ],
+            style={"flex": "1", "overflow": "hidden"}
+        )
+    ]),
+
     # Menu Drawer
     html.Div(
         id="menu-drawer",
@@ -515,9 +613,10 @@ def update_menu_visuals(is_open):
      Input("focus-map-btn", "n_clicks"),
      Input("focus-plot-btn", "n_clicks")],
     [State("compare-mode-store", "data"),
-     State("compare-sheet-store", "data")]
+     State("compare-sheet-store", "data"),
+     State("explore-mode-store", "data")]
 )
-def compare_controller(n_compare, n_close, n_focus_map, n_focus_plot, is_active, sheet_state):
+def compare_controller(n_compare, n_close, n_focus_map, n_focus_plot, is_active, sheet_state, explore_mode):
     trigger = ctx.triggered_id
     if not trigger:
         return (dash.no_update,) * 7
@@ -528,7 +627,7 @@ def compare_controller(n_compare, n_close, n_focus_map, n_focus_plot, is_active,
     
     # default: leave sheet_state as is
     new_sheet_state = sheet_state or "collapsed"
-    
+
     # ---- CLOSE compare ----
     if trigger == "close-compare-btn":
         search_style["display"] = "none"
@@ -539,6 +638,8 @@ def compare_controller(n_compare, n_close, n_focus_map, n_focus_plot, is_active,
     
     # ---- TOGGLE compare ----
     if trigger == "compare-btn":
+        if explore_mode and not is_active:
+            return (dash.no_update,) * 7
         new_state = not is_active
         if new_state:
             # opening: show panel + sheet (collapsed)
@@ -582,9 +683,10 @@ def compare_controller(n_compare, n_close, n_focus_map, n_focus_plot, is_active,
      Output("explore-btn", "children")],
     [Input("explore-btn", "n_clicks"),
      Input("close-explore-btn", "n_clicks")],
-    [State("explore-mode-store", "data")]
+    [State("explore-mode-store", "data"),
+     State("compare-mode-store", "data")]
 )
-def toggle_explore_mode(btn_click, close_click, is_active):
+def toggle_explore_mode(btn_click, close_click, is_active, compare_mode):
     trigger = ctx.triggered_id
     if not trigger:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update
@@ -595,6 +697,8 @@ def toggle_explore_mode(btn_click, close_click, is_active):
     btn_style = EXPLORE_BTN_STYLE.copy()
 
     if new_state:
+        if compare_mode:
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update
         drawer_style["display"] = "flex"
         drawer_style["flexDirection"] = "column"
         btn_style["background"] = "linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)"
@@ -604,16 +708,80 @@ def toggle_explore_mode(btn_click, close_click, is_active):
         return False, drawer_style, EXPLORE_BTN_STYLE, "Explore Correlations"
 
 
+# B3. Transport Mode Logic (NEW)
+@app.callback(
+    [Output("transport-mode-store", "data"),
+     Output("transport-drawer", "style"),
+     Output("transport-btn", "style"),
+     Output("transport-btn", "children")],
+    [Input("transport-btn", "n_clicks")],
+    [State("transport-mode-store", "data")]
+)
+def toggle_transport_mode(btn_click, is_active):
+    trigger = ctx.triggered_id
+    if not trigger:
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+    new_state = not is_active if trigger == "transport-btn" else False
+    drawer_style = TRANSPORT_DRAWER_STYLE.copy()
+    btn_style = TRANSPORT_BTN_STYLE.copy()
+
+    if new_state:
+        drawer_style["display"] = "flex"
+        drawer_style["flexDirection"] = "column"
+        btn_style["background"] = "linear-gradient(135deg, #e74c3c 0%, #f1c40f 100%)"
+        return True, drawer_style, btn_style, "Close Transport"
+    else:
+        drawer_style["display"] = "none"
+        return False, drawer_style, TRANSPORT_BTN_STYLE, "Transport Focus"
+
+
+# B4. Transport Rank Update (NEW)
+@app.callback(
+    Output(transport_rank_view.html_id, "figure"),
+    [Input("transport-topn-slider", "value"),
+     Input("transport-selected-store", "data")]
+)
+def update_transport_rank(top_n, selected_countries):
+    return transport_rank_view.update(top_n=top_n, selected_countries=selected_countries)
+
+
+# B5. Transport Selection (NEW)
+@app.callback(
+    Output("transport-selected-store", "data"),
+    [Input(transport_rank_view.html_id, "clickData"),
+     Input("transport-mode-store", "data")],
+    [State("transport-selected-store", "data")]
+)
+def update_transport_selection(click_data, transport_mode, selected_countries):
+    trigger = ctx.triggered_id
+
+    if trigger == "transport-mode-store" and not transport_mode:
+        return []
+
+    if trigger == transport_rank_view.html_id and click_data and transport_mode:
+        country = click_data["points"][0].get("y")
+        selected_countries = selected_countries or []
+        if country in selected_countries:
+            return [c for c in selected_countries if c != country]
+        return selected_countries + [country]
+
+    return dash.no_update
+
+
 # C. Manage Country Selection (Dropdown + Map)
 @app.callback(
     Output("country-selector", "value"),
     [Input(map_view.html_id, "clickData"),
-     Input("country-selector", "value")],
-    [State("compare-mode-store", "data")]
+     Input("country-selector", "value"),
+     Input("compare-mode-store", "data")]
 )
 def manage_selection_ui(map_click, dropdown_value, compare_mode):
     trigger = ctx.triggered_id
-    
+
+    if trigger == "compare-mode-store" and not compare_mode:
+        return []
+
     if not compare_mode and trigger == map_view.html_id:
         return dash.no_update
 
@@ -726,11 +894,12 @@ def store_brushed_countries(selected_data, explore_mode_change, explore_mode_sta
     Output(map_view.html_id, "figure"),
     [Input("select-risk-variable", "value"),
      Input("brushed-countries-store", "data"),
-     Input("selected-countries-store", "data")]
+     Input("selected-countries-store", "data"),
+     Input("transport-selected-store", "data")]
 )
-def update_map(selected_risk, brushed_countries, selected_countries):
+def update_map(selected_risk, brushed_countries, selected_countries, transport_selected):
     # Combine both lists for highlighting
-    all_highlighted = list(set(brushed_countries + selected_countries))
+    all_highlighted = list(set(brushed_countries + selected_countries + transport_selected))
     return map_view.update(selected_risk, all_highlighted)
 
 
