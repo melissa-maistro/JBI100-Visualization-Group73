@@ -497,11 +497,13 @@ app.layout = html.Div([
         style=RADAR_CONTAINER_STYLE,
         children=[
             html.Div(
+                id ="radar-header",
                 style={
                     "display": "flex",
                     "justifyContent": "space-between",
                     "alignItems": "center",
                     "marginBottom": "16px",
+                    "cursor": "move",
                     "padding": "0 4px",
                     "borderBottom": "2px solid rgba(100, 149, 237, 0.2)",
                     "paddingBottom": "12px"
