@@ -123,7 +123,7 @@ PCA_CONTAINER_STYLE = {
     "boxSizing": "border-box"
 }
 
-# 6. Compare Button Style
+# 6. Compare Button Style (Aggiornato)
 COMPARE_BTN_STYLE = {
     "background": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
     "color": "white",
@@ -137,7 +137,12 @@ COMPARE_BTN_STYLE = {
     "letterSpacing": "0.5px",
     "transition": "transform 0.2s, box-shadow 0.2s",
     "textTransform": "uppercase",
-    "whiteSpace": "nowrap"
+    "whiteSpace": "nowrap",
+    # Proprietà per centrare il testo:
+    "display": "flex",
+    "alignItems": "center",
+    "justifyContent": "center",
+    "textAlign": "center"
 }
 
 # 7. Compare Panel Style
@@ -179,7 +184,7 @@ SHEET_EXPANDED_HEIGHT = "65vh"
 # Keep old style name for backwards compatibility
 COMPARE_DRAWER_STYLE = COMPARE_SHEET_BASE_STYLE
 
-# 9. Explore Button Style (NEW)
+# 9. Explore Button Style (Aggiornato)
 EXPLORE_BTN_STYLE = {
     "background": "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
     "color": "white",
@@ -193,7 +198,12 @@ EXPLORE_BTN_STYLE = {
     "letterSpacing": "0.5px",
     "transition": "transform 0.2s, box-shadow 0.2s",
     "textTransform": "uppercase",
-    "whiteSpace": "nowrap"
+    "whiteSpace": "nowrap",
+    # Proprietà per centrare il testo:
+    "display": "flex",
+    "alignItems": "center",
+    "justifyContent": "center",
+    "textAlign": "center"
 }
 
 # 10. Transport Button Style (NEW)
@@ -217,11 +227,13 @@ TRANSPORT_BTN_STYLE = {
 TOP_BUTTON_ROW_STYLE = {
     "position": "fixed",
     "top": "25px",
-    "left": "90px",
+    "left": "50%",            # Sposta l'inizio al 50% della larghezza
+    "transform": "translateX(-50%)", # Riporta indietro della metà della sua larghezza per centrare perfettamente
     "zIndex": 2100,
     "display": "flex",
     "gap": "14px",
-    "alignItems": "center"
+    "alignItems": "center",
+    "justifyContent": "center" # Centra i bottoni all'interno della riga
 }
 
 # 11. Transport Drawer Style (NEW)
@@ -253,6 +265,7 @@ app.layout = html.Div([
     dcc.Store(id='compare-sheet-store', data='collapsed'),  # NEW for sheet state
     dcc.Store(id='transport-mode-store', data=False),  # NEW
     dcc.Store(id='transport-selected-store', data=[]),  # NEW
+    dcc.Store(id='colorblind-state-store', data=False),
     
     # Invisible overlay to capture clicks anywhere on screen
     html.Div(
@@ -834,9 +847,24 @@ def update_compare_view(selected_countries):
      State("explore-mode-store", "data")]
 )
 def toggle_radar_visibility(map_click, close_click, is_open, is_compare_mode, is_explore_mode):
-    trigger = ctx.triggered_id
-    if not trigger:
+    if not ctx.triggered:
         return is_open, dash.no_update
+
+    triggered_ids = {t["prop_id"].split(".")[0] for t in ctx.triggered}
+
+    # If compare mode or explore mode is active, radar stays closed
+    if is_compare_mode or is_explore_mode:
+        return False, dash.no_update
+
+    # Close always wins (prevents accidental reopen from map clicks)
+    if "close-radar-btn" in triggered_ids:
+        return False, None
+
+    if map_view.html_id in triggered_ids and map_click:
+        return True, dash.no_update
+
+    return is_open, dash.no_update
+
 
     # If compare mode or explore mode is active, radar stays closed
     if is_compare_mode or is_explore_mode:
@@ -859,8 +887,10 @@ def update_radar_visuals(is_open):
     style = RADAR_CONTAINER_STYLE.copy()
     if is_open:
         style["transform"] = "translateX(0)"
+        style["display"] = "flex"
     else:
         style["transform"] = "translateX(130%)"
+        style["display"] = "none"
     return style
 
 
@@ -891,19 +921,24 @@ def store_brushed_countries(selected_data, explore_mode_change, explore_mode_sta
     return dash.no_update
 
 
-# H. Map Update (with Brushed and Selected Countries)
+# H. Map Update (Aggiornata per includere il filtro daltonismo)
 @app.callback(
     Output(map_view.html_id, "figure"),
     [Input("select-risk-variable", "value"),
      Input("brushed-countries-store", "data"),
      Input("selected-countries-store", "data"),
-     Input("transport-selected-store", "data")]
+     Input("transport-selected-store", "data"),
+     Input("colorblind-mode", "value")]  # Input diretto dal checklist del menu
 )
-def update_map(selected_risk, brushed_countries, selected_countries, transport_selected):
-    # Combine both lists for highlighting
-    all_highlighted = list(set(brushed_countries + selected_countries + transport_selected))
-    return map_view.update(selected_risk, all_highlighted)
+def update_map(selected_risk, brushed_countries, selected_countries, transport_selected, cb_value):
+    # Determina se la modalità daltonismo è attiva
+    is_colorblind = True if cb_value and 'active' in cb_value else False
 
+    # Combina le liste per l'evidenziazione
+    all_highlighted = list(set(brushed_countries + selected_countries + transport_selected))
+
+    # Chiama il metodo update passando il nuovo parametro
+    return map_view.update(selected_risk, all_highlighted, is_colorblind)
 
 # I. Radar Data Update
 @app.callback(
@@ -912,7 +947,9 @@ def update_map(selected_risk, brushed_countries, selected_countries, transport_s
      Input("select-risk-variable", "value")]
 )
 def update_radar_data(click_data, selected_risk):
-    country = click_data['points'][0]['location'] if click_data else None
+    if not click_data:
+        return dash.no_update
+    country = click_data['points'][0]['location']
     return radar_view.update(country, selected_risk)
 
 
@@ -929,8 +966,30 @@ def update_pca_graph(explore_mode, selected_data):
     if trigger == "explore-mode-store":
         selected_color = "rgb(17, 153, 142)"  # Matching the explore button color
         return pca_scatter.update(selected_color, selected_data)
-    
     return dash.no_update
+
+
+# K. Logic for Methodology Tooltip (?)
+@app.callback(
+    [Output("info-card", "style"),
+     Output("info-backdrop", "style")],
+    [Input("open-info-btn", "n_clicks"),
+     Input("info-backdrop", "n_clicks")],
+    [State("info-card", "style"),
+     State("info-backdrop", "style")]
+)
+def toggle_methodology_info(n_open, n_backdrop, card_style, backdrop_style):
+    trigger = ctx.triggered_id
+
+    # Se clicchi sul pulsante o sullo sfondo
+    if trigger == "open-info-btn" and n_open > 0:
+        card_style["display"] = "block"
+        backdrop_style["display"] = "block"
+    elif trigger == "info-backdrop":
+        card_style["display"] = "none"
+        backdrop_style["display"] = "none"
+
+    return card_style, backdrop_style
 
 
 if __name__ == '__main__':
