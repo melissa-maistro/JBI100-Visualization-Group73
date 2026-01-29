@@ -229,7 +229,7 @@ TOP_BUTTON_ROW_STYLE = {
     "top": "25px",
     "left": "50%",            # Sposta l'inizio al 50% della larghezza
     "transform": "translateX(-50%)", # Riporta indietro della metà della sua larghezza per centrare perfettamente
-    "zIndex": 2100,
+    "zIndex": 1800,
     "display": "flex",
     "gap": "14px",
     "alignItems": "center",
@@ -262,6 +262,7 @@ app.layout = html.Div([
     dcc.Store(id='compare-mode-store', data=False),
     dcc.Store(id='selected-countries-store', data=[]),
     dcc.Store(id='explore-mode-store', data=False),  # NEW
+    dcc.Store(id='explore-sheet-store', data='collapsed'),
     dcc.Store(id='compare-sheet-store', data='collapsed'),  # NEW for sheet state
     dcc.Store(id='transport-mode-store', data=False),  # NEW
     dcc.Store(id='transport-selected-store', data=[]),  # NEW
@@ -389,7 +390,7 @@ app.layout = html.Div([
         html.Div(compare_view, style={"height": "calc(100% - 60px)", "width": "100%"})
     ]),
 
-    # Explore Correlations Drawer (NEW - replaces the floating PCA)
+    # Explore Correlations Drawer (AGGIORNATO CON TASTI FOCUS)
     html.Div(id="explore-drawer", style=PCA_CONTAINER_STYLE, children=[
         html.Div(
             style={
@@ -409,25 +410,63 @@ app.layout = html.Div([
                     "fontSize": "18px",
                     "letterSpacing": "0.3px"
                 }),
-                html.Button(
-                    "×",
-                    id="close-explore-btn",
-                    n_clicks=0,
-                    style={
-                        "background": "transparent",
-                        "border": "none",
-                        "fontSize": "28px",
-                        "cursor": "pointer",
-                        "color": "#95a5a6",
-                        "transition": "color 0.2s",
-                        "padding": "0",
-                        "width": "32px",
-                        "height": "32px",
-                        "display": "flex",
-                        "alignItems": "center",
-                        "justifyContent": "center",
-                        "borderRadius": "50%"
-                    }
+                html.Div(
+                    style={"display": "flex", "gap": "10px", "alignItems": "center"},
+                    children=[
+                        # Tasto Focus Map
+                        html.Button(
+                            "Focus Map",
+                            id="focus-map-explore-btn",
+                            n_clicks=0,
+                            style={
+                                "background": "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",  # Tema Verde
+                                "color": "white",
+                                "border": "none",
+                                "padding": "6px 16px",
+                                "borderRadius": "20px",
+                                "cursor": "pointer",
+                                "fontSize": "12px",
+                                "fontWeight": "600"
+                            }
+                        ),
+                        # Tasto Focus Plot
+                        html.Button(
+                            "Focus Plot",
+                            id="focus-plot-explore-btn",
+                            n_clicks=0,
+                            style={
+                                "background": "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",  # Tema Verde
+                                "color": "white",
+                                "border": "none",
+                                "padding": "6px 16px",
+                                "borderRadius": "20px",
+                                "cursor": "pointer",
+                                "fontSize": "12px",
+                                "fontWeight": "600"
+                            }
+                        ),
+                        # Tasto Chiudi (X)
+                        html.Button(
+                            "×",
+                            id="close-explore-btn",
+                            n_clicks=0,
+                            style={
+                                "background": "transparent",
+                                "border": "none",
+                                "fontSize": "28px",
+                                "cursor": "pointer",
+                                "color": "#95a5a6",
+                                "transition": "color 0.2s",
+                                "padding": "0",
+                                "width": "32px",
+                                "height": "32px",
+                                "display": "flex",
+                                "alignItems": "center",
+                                "justifyContent": "center",
+                                "borderRadius": "50%"
+                            }
+                        )
+                    ]
                 )
             ]
         ),
@@ -435,7 +474,7 @@ app.layout = html.Div([
             dcc.Graph(
                 id=pca_scatter.html_id,
                 figure=pca_scatter.update('rgb(255,100,100)', None),
-                style={"height": "calc(100% - 60px)"}
+                style={"height": "calc(100% - 60px)"}  # Altezza relativa al contenitore
             ),
             style={"flex": "1", "overflow": "hidden"}
         )
@@ -690,38 +729,76 @@ def compare_controller(n_compare, n_close, n_focus_map, n_focus_plot, is_active,
     return True, search_style, drawer_style, btn_style, "Stop Comparing", dash.no_update, new_sheet_state
 
 
-# B2. Explore Mode Logic (NEW)
+# B2. Explore Mode Logic (Apertura immediata in Focus Plot)
 @app.callback(
     [Output("explore-mode-store", "data"),
      Output("explore-drawer", "style"),
      Output("explore-btn", "style"),
-     Output("explore-btn", "children")],
+     Output("explore-btn", "children"),
+     Output("explore-sheet-store", "data")],
     [Input("explore-btn", "n_clicks"),
-     Input("close-explore-btn", "n_clicks")],
+     Input("close-explore-btn", "n_clicks"),
+     Input("focus-map-explore-btn", "n_clicks"),
+     Input("focus-plot-explore-btn", "n_clicks")],
     [State("explore-mode-store", "data"),
-     State("compare-mode-store", "data")]
+     State("compare-mode-store", "data"),
+     State("explore-sheet-store", "data")]
 )
-def toggle_explore_mode(btn_click, close_click, is_active, compare_mode):
+def explore_controller(n_explore, n_close, n_map, n_plot, is_active, compare_mode, sheet_state):
     trigger = ctx.triggered_id
     if not trigger:
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return (dash.no_update,) * 5
 
-    new_state = not is_active if trigger == "explore-btn" else False
-    
     drawer_style = PCA_CONTAINER_STYLE.copy()
     btn_style = EXPLORE_BTN_STYLE.copy()
+    # Centratura testo
+    btn_style.update({"display": "flex", "alignItems": "center", "justifyContent": "center", "textAlign": "center"})
 
-    if new_state:
-        if compare_mode:
-            return dash.no_update, dash.no_update, dash.no_update, dash.no_update
-        drawer_style["display"] = "flex"
-        drawer_style["flexDirection"] = "column"
-        btn_style["background"] = "linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)"
-        return True, drawer_style, btn_style, "Close Explorer"
-    else:
+    new_sheet_state = sheet_state or "collapsed"
+
+    # --- CLOSE ---
+    if trigger == "close-explore-btn":
         drawer_style["display"] = "none"
-        return False, drawer_style, EXPLORE_BTN_STYLE, "Explore Correlations"
+        drawer_style["height"] = SHEET_COLLAPSED_HEIGHT
+        return False, drawer_style, btn_style, "Explore Correlations", "collapsed"
 
+    # --- TOGGLE MAIN BUTTON ---
+    if trigger == "explore-btn":
+        if compare_mode and not is_active:
+            return (dash.no_update,) * 5
+
+        new_active = not is_active
+        if new_active:
+            # OPEN -> MODIFICA QUI: Impostiamo subito l'altezza ESPANSA
+            drawer_style["display"] = "flex"
+            drawer_style["flexDirection"] = "column"
+            drawer_style["height"] = SHEET_EXPANDED_HEIGHT  # <--- Apre grande (Focus Plot)
+            btn_style["background"] = "linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)"
+
+            # Impostiamo lo stato iniziale come 'expanded'
+            return True, drawer_style, btn_style, "Close Explorer", "expanded"
+        else:
+            # CLOSE
+            drawer_style["display"] = "none"
+            return False, drawer_style, btn_style, "Explore Correlations", "collapsed"
+
+    # --- FOCUS LOGIC ---
+    if not is_active:
+        return (dash.no_update,) * 5
+
+    if trigger == "focus-plot-explore-btn":
+        new_sheet_state = "expanded"
+    elif trigger == "focus-map-explore-btn":
+        new_sheet_state = "collapsed"
+
+    drawer_style["display"] = "flex"
+    drawer_style["flexDirection"] = "column"
+    drawer_style["height"] = SHEET_EXPANDED_HEIGHT if new_sheet_state == "expanded" else SHEET_COLLAPSED_HEIGHT
+
+    btn_style["background"] = "linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)"
+
+    # Restituiamo dash.no_update per non perdere la selezione durante i resize successivi
+    return dash.no_update, drawer_style, btn_style, "Close Explorer", new_sheet_state
 
 # B3. Transport Mode Logic (NEW)
 @app.callback(
