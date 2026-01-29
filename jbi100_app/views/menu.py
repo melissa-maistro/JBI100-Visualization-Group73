@@ -154,6 +154,15 @@ def generate_info_tooltip():
                             ], style={'paddingLeft': '15px', 'margin': '2px 0 0 0'})
                         ]),
 
+                        html.Div([
+                            html.B("🛣️ Transport Intervention"),
+                            html.Ul([
+                                html.Li("Runways (paved + unpaved), Roads, Railways, Waterways"),
+                                html.Li("Density per population/area → log + normalize"),
+                                html.Li("Constraint = 1 − Supply (higher = worse)")
+                            ], style={'paddingLeft': '15px', 'margin': '2px 0 0 0'})
+                        ]),
+
                         html.Div("Click anywhere else to close",
                                  style={'fontSize': '10px', 'color': '#aaa', 'marginTop': '10px', 'textAlign': 'right',
                                         'fontStyle': 'italic'})
