@@ -8,6 +8,13 @@ from jbi100_app.views.compare import CompareView
 from jbi100_app.views.transport_rank import TransportRankView
 from jbi100_app.data import get_data
 import dash
+from jbi100_app.views.explore_panel import ExplorePanel
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+import plotly.graph_objects as go
+from sklearn.impute import SimpleImputer
 
 # test
 
@@ -19,13 +26,9 @@ map_view = MapView("Map View", df)
 radar_view = RadarView("Radar View", df)
 compare_view = CompareView("Compare View", df)
 transport_rank_view = TransportRankView("Transport Rank", df)
+explore_panel = ExplorePanel("Explore Panel")
 
-pca_scatter = Scatterplot(
-    name="PCA Risk Space",
-    feature_x="PC1",
-    feature_y="PC2",
-    df=df
-)
+
 
 # Lista paesi per il dropdown
 all_countries = sorted(df['Country'].unique().tolist())
@@ -245,7 +248,6 @@ app.layout = html.Div([
     # Stores
     dcc.Store(id='menu-state-store', data=False),
     dcc.Store(id='radar-state-store', data=False),
-    dcc.Store(id='pca-state-store', data=False),
     dcc.Store(id='brushed-countries-store', data=[]),
     dcc.Store(id='compare-mode-store', data=False),
     dcc.Store(id='selected-countries-store', data=[]),
@@ -253,6 +255,10 @@ app.layout = html.Div([
     dcc.Store(id='compare-sheet-store', data='collapsed'),  # NEW for sheet state
     dcc.Store(id='transport-mode-store', data=False),  # NEW
     dcc.Store(id='transport-selected-store', data=[]),  # NEW
+    dcc.Store(id='explore-highlight-store', data=[]),      # lista paesi highlight da explore
+    dcc.Store(id='sim-selected-store', data=[]),          # lista [anchor + topK] per "send to compare"
+    dcc.Store(id='cluster-assign-store', data={}),        # dict country->cluster
+    dcc.Store(id='cluster-selected-store', data=[]),       # lista paesi cluster selezionato
     
     # Invisible overlay to capture clicks anywhere on screen
     html.Div(
@@ -376,57 +382,7 @@ app.layout = html.Div([
         html.Div(compare_view, style={"height": "calc(100% - 60px)", "width": "100%"})
     ]),
 
-    # Explore Correlations Drawer (NEW - replaces the floating PCA)
-    html.Div(id="explore-drawer", style=PCA_CONTAINER_STYLE, children=[
-        html.Div(
-            style={
-                "display": "flex",
-                "justifyContent": "space-between",
-                "alignItems": "center",
-                "marginBottom": "16px",
-                "padding": "0 4px",
-                "borderBottom": "2px solid rgba(17, 153, 142, 0.2)",
-                "paddingBottom": "12px"
-            },
-            children=[
-                html.H5("PCA Risk Space - Explore Correlations", style={
-                    "margin": 0,
-                    "color": "#2c3e50",
-                    "fontWeight": "600",
-                    "fontSize": "18px",
-                    "letterSpacing": "0.3px"
-                }),
-                html.Button(
-                    "×",
-                    id="close-explore-btn",
-                    n_clicks=0,
-                    style={
-                        "background": "transparent",
-                        "border": "none",
-                        "fontSize": "28px",
-                        "cursor": "pointer",
-                        "color": "#95a5a6",
-                        "transition": "color 0.2s",
-                        "padding": "0",
-                        "width": "32px",
-                        "height": "32px",
-                        "display": "flex",
-                        "alignItems": "center",
-                        "justifyContent": "center",
-                        "borderRadius": "50%"
-                    }
-                )
-            ]
-        ),
-        html.Div(
-            dcc.Graph(
-                id=pca_scatter.html_id,
-                figure=pca_scatter.update('rgb(255,100,100)', None),
-                style={"height": "calc(100% - 60px)"}
-            ),
-            style={"flex": "1", "overflow": "hidden"}
-        )
-    ]),
+
 
     # Transport Drawer (NEW)
     html.Div(id="transport-drawer", style=TRANSPORT_DRAWER_STYLE, children=[
@@ -709,6 +665,193 @@ def toggle_explore_mode(btn_click, close_click, is_active, compare_mode):
         drawer_style["display"] = "none"
         return False, drawer_style, EXPLORE_BTN_STYLE, "Explore Correlations"
 
+RISK_DIMS_DEFAULT = ["Economic Risk", "Social Risk", "Infrastructure Risk", "Demographic Risk"]
+
+@app.callback(
+    [Output("sim-table", "data"),
+     Output("sim-delta-bar", "figure"),
+     Output("explore-highlight-store", "data", allow_duplicate=True),
+     Output("sim-selected-store", "data")],
+    [Input("sim-anchor-country", "value"),
+     Input("sim-topk", "value"),
+     Input("sim-dims", "value"),
+     Input("explore-mode-store", "data")],
+    prevent_initial_call=True
+)
+def update_similarity(anchor, topk, dims, explore_on):
+    if not explore_on or not anchor:
+        fig = go.Figure()
+        fig.update_layout(margin=dict(l=20, r=20, t=30, b=20), title="Select an anchor country")
+        return [], fig, [], []
+
+    dims = dims or RISK_DIMS_DEFAULT
+    dims = [d for d in dims if d in df.columns]
+    if len(dims) < 2:
+        fig = go.Figure()
+        fig.update_layout(margin=dict(l=20, r=20, t=30, b=20), title="Select at least 2 dimensions")
+        return [], fig, [anchor], [anchor]
+
+    X = df[dims].astype(float).values
+    scaler = StandardScaler()
+    Xs = scaler.fit_transform(X)
+
+    # anchor row
+    try:
+        a_idx = df.index[df["Country"] == anchor][0]
+    except Exception:
+        fig = go.Figure()
+        fig.update_layout(margin=dict(l=20, r=20, t=30, b=20), title="Anchor not found")
+        return [], fig, [], []
+
+    a_vec = Xs[a_idx]
+    dists = np.linalg.norm(Xs - a_vec, axis=1)
+
+    # sort excluding anchor
+    order = np.argsort(dists)
+    order = [i for i in order if i != a_idx]
+    topk = int(topk or 7)
+    topk_idx = order[:topk]
+
+    top_countries = df.iloc[topk_idx]["Country"].tolist()
+    table_data = [{"Country": c, "Distance": float(f"{dists[df.index[df['Country']==c][0]]:.3f}")} for c in top_countries]
+
+    # Explanation bar: mean(topK) - anchor (in original scale 0..1)
+    anchor_vals = df.loc[df["Country"] == anchor, dims].iloc[0].astype(float).values
+    mean_vals = df.iloc[topk_idx][dims].astype(float).mean().values
+    delta = mean_vals - anchor_vals
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=dims, y=delta))
+    fig.update_layout(
+        title="How similar countries differ from the anchor (mean(topK) − anchor)",
+        margin=dict(l=20, r=20, t=40, b=40),
+        yaxis_title="Δ risk (positive = higher than anchor)"
+    )
+
+    highlight = [anchor] + top_countries
+    sim_selected = [anchor] + top_countries
+
+    return table_data, fig, highlight, sim_selected
+
+@app.callback(
+    Output("selected-countries-store", "data", allow_duplicate=True),
+    Input("sim-send-to-compare", "n_clicks"),
+    State("sim-selected-store", "data"),
+    prevent_initial_call=True
+)
+def send_similarity_to_compare(n, sim_selected):
+    if not n:
+        return dash.no_update
+    sim_selected = sim_selected or []
+    # limitiamo per evitare spaghetti nel plot
+    return sim_selected[:8]
+
+
+
+@app.callback(
+    [Output("clust-table", "data"),
+     Output("clust-select", "options"),
+     Output("cluster-assign-store", "data")],
+    [Input("clust-k", "value"),
+     Input("clust-dims", "value"),
+     Input("explore-mode-store", "data")],
+    prevent_initial_call=True
+)
+def compute_clusters(k, dims, explore_on):
+    if not explore_on:
+        return dash.no_update, dash.no_update, dash.no_update
+
+    k = int(k or 4)
+    dims = dims or RISK_DIMS_DEFAULT
+    dims = [d for d in dims if d in df.columns]
+    if len(dims) < 2:
+        return [], [], {}
+
+    X = df[dims].astype(float).values
+    Xs = StandardScaler().fit_transform(X)
+
+    km = KMeans(n_clusters=k, n_init=10, random_state=42)
+    labels = km.fit_predict(Xs)
+
+    # assignment dict
+    assign = {df.iloc[i]["Country"]: int(labels[i]) for i in range(len(df))}
+
+    # sizes
+    sizes = pd.Series(labels).value_counts().sort_index()
+    table = [{"Cluster": f"Cluster {int(cid)}", "Size": int(sizes.loc[cid])} for cid in sizes.index]
+
+    opts = [{"label": f"Cluster {int(cid)} (n={int(sizes.loc[cid])})", "value": int(cid)} for cid in sizes.index]
+    return table, opts, assign
+
+
+@app.callback(
+    [Output("clust-countries", "data"),
+     Output("clust-explain-bar", "figure"),
+     Output("explore-highlight-store", "data", allow_duplicate=True),
+     Output("cluster-selected-store", "data")],
+    [Input("clust-select", "value"),
+     Input("cluster-assign-store", "data"),
+     Input("clust-dims", "value"),
+     Input("explore-mode-store", "data")],
+    prevent_initial_call=True
+)
+def select_cluster(cluster_id, assign, dims, explore_on):
+    dims = dims or RISK_DIMS_DEFAULT
+    dims = [d for d in dims if d in df.columns]
+
+    if not explore_on or cluster_id is None or not assign or len(dims) < 2:
+        fig = go.Figure()
+        fig.update_layout(margin=dict(l=20, r=20, t=30, b=20), title="Select a cluster")
+        return [], fig, [], []
+
+    cluster_id = int(cluster_id)
+
+    countries = [c for c, cid in assign.items() if int(cid) == cluster_id]
+    countries_sorted = sorted(countries)
+
+    # countries table
+    countries_table = [{"Country": c} for c in countries_sorted]
+
+    # explain: mean(cluster) - mean(global)
+    global_mean = df[dims].astype(float).mean()
+    cluster_mean = df[df["Country"].isin(countries)][dims].astype(float).mean()
+    delta = (cluster_mean - global_mean).values
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=dims, y=delta))
+    fig.update_layout(
+        title="Cluster signature (mean(cluster) − mean(global))",
+        margin=dict(l=20, r=20, t=40, b=40),
+        yaxis_title="Δ risk (positive = higher than global mean)"
+    )
+
+    highlight = countries_sorted
+    return countries_table, fig, highlight, countries_sorted
+
+
+@app.callback(
+    Output("selected-countries-store", "data", allow_duplicate=True),
+    Input("clust-send-to-compare", "n_clicks"),
+    State("cluster-selected-store", "data"),
+    prevent_initial_call=True
+)
+def send_cluster_to_compare(n, cluster_countries):
+    if not n:
+        return dash.no_update
+    cluster_countries = cluster_countries or []
+    return cluster_countries[:8]
+
+@app.callback(
+    [Output("explore-highlight-store", "data"),
+     Output("sim-anchor-country", "value"),
+     Output("clust-select", "value")],
+    Input("explore-mode-store", "data"),
+    prevent_initial_call=True
+)
+def reset_explore_state(explore_on):
+    if not explore_on:
+        return [], None, None
+    return dash.no_update, dash.no_update, dash.no_update
 
 # B3. Transport Mode Logic (NEW)
 @app.callback(
@@ -719,6 +862,8 @@ def toggle_explore_mode(btn_click, close_click, is_active, compare_mode):
     [Input("transport-btn", "n_clicks")],
     [State("transport-mode-store", "data")]
 )
+
+
 def toggle_transport_mode(btn_click, is_active):
     trigger = ctx.triggered_id
     if not trigger:
@@ -864,46 +1009,22 @@ def update_radar_visuals(is_open):
     return style
 
 
-# G. Store Brushed Countries from PCA
-@app.callback(
-    Output("brushed-countries-store", "data"),
-    [Input(pca_scatter.html_id, "selectedData"),
-     Input("explore-mode-store", "data")],
-    [State("explore-mode-store", "data")]
-)
-def store_brushed_countries(selected_data, explore_mode_change, explore_mode_state):
-    trigger = ctx.triggered_id
-    
-    # Clear selection when explore mode is closed
-    if trigger == "explore-mode-store" and not explore_mode_state:
-        return []
-    
-    # Update selection when points are selected
-    if trigger == pca_scatter.html_id:
-        if selected_data is None or 'points' not in selected_data:
-            return []
-        
-        selected_indices = [point['pointIndex'] for point in selected_data['points']]
-        brushed_countries = df.iloc[selected_indices]['Country'].tolist() if 'Country' in df.columns else []
-        
-        return brushed_countries
-    
-    return dash.no_update
 
 
 # H. Map Update (with Brushed and Selected Countries)
 @app.callback(
     Output(map_view.html_id, "figure"),
     [Input("select-risk-variable", "value"),
-     Input("brushed-countries-store", "data"),
+     Input("explore-highlight-store", "data"),
      Input("selected-countries-store", "data"),
      Input("transport-selected-store", "data")]
 )
-def update_map(selected_risk, brushed_countries, selected_countries, transport_selected):
-    # Combine both lists for highlighting
-    all_highlighted = list(set(brushed_countries + selected_countries + transport_selected))
+def update_map(selected_risk, explore_highlight, selected_countries, transport_selected):
+    explore_highlight = explore_highlight or []
+    selected_countries = selected_countries or []
+    transport_selected = transport_selected or []
+    all_highlighted = list(set(explore_highlight + selected_countries + transport_selected))
     return map_view.update(selected_risk, all_highlighted)
-
 
 # I. Radar Data Update
 @app.callback(
@@ -915,22 +1036,17 @@ def update_radar_data(click_data, selected_risk):
     country = click_data['points'][0]['location'] if click_data else None
     return radar_view.update(country, selected_risk)
 
-
-# J. PCA Graph Update (when in explore mode)
 @app.callback(
-    Output(pca_scatter.html_id, "figure"),
-    [Input("explore-mode-store", "data")],
-    [State(pca_scatter.html_id, "selectedData")]
+    Output("sim-anchor-country", "options"),
+    Input("explore-mode-store", "data")
 )
-def update_pca_graph(explore_mode, selected_data):
-    trigger = ctx.triggered_id
-    
-    # Only update when explore mode changes, not when selection changes
-    if trigger == "explore-mode-store":
-        selected_color = "rgb(17, 153, 142)"  # Matching the explore button color
-        return pca_scatter.update(selected_color, selected_data)
-    
-    return dash.no_update
+def load_anchor_options(explore_on):
+    if not explore_on:
+        return dash.no_update
+    return [{"label": c, "value": c} for c in all_countries]
+
+
+
 
 
 if __name__ == '__main__':
