@@ -209,20 +209,24 @@ EXPLORE_BTN_STYLE = {
 # 10. Transport Button Style (NEW)
 TRANSPORT_BTN_STYLE = {
     "background": "linear-gradient(135deg, #f7971e 0%, #ffd200 100%)",
-    "color": "#2c3e50",
+    "color": "white",
     "border": "none",
-    "padding": "10px 22px",
+    "padding": "10px 25px",
     "borderRadius": "50px",
     "cursor": "pointer",
     "boxShadow": "0 4px 15px rgba(0,0,0,0.2)",
     "fontWeight": "bold",
-    "fontSize": "13px",
-    "letterSpacing": "0.4px",
+    "fontSize": "14px",
+    "letterSpacing": "0.5px",
     "transition": "transform 0.2s, box-shadow 0.2s",
     "textTransform": "uppercase",
-    "whiteSpace": "nowrap"
+    "whiteSpace": "nowrap",
+    # Proprieta per centrare il testo:
+    "display": "flex",
+    "alignItems": "center",
+    "justifyContent": "center",
+    "textAlign": "center"
 }
-
 # 10.5 Top Button Row Style (NEW)
 TOP_BUTTON_ROW_STYLE = {
     "position": "fixed",
@@ -258,7 +262,7 @@ app.layout = html.Div([
     dcc.Store(id='menu-state-store', data=False),
     dcc.Store(id='radar-state-store', data=False),
     dcc.Store(id='pca-state-store', data=False),
-    dcc.Store(id='brushed-countries-store', data=[]),
+    dcc.Store(id='brushed-countries-store', data={"countries": [], "source": None}),
     dcc.Store(id='compare-mode-store', data=False),
     dcc.Store(id='selected-countries-store', data=[]),
     dcc.Store(id='explore-mode-store', data=False),  # NEW
@@ -294,7 +298,7 @@ app.layout = html.Div([
         children=[
             html.Button("Compare Countries", id="compare-btn", n_clicks=0, style=COMPARE_BTN_STYLE),
             html.Button("Explore Correlations", id="explore-btn", n_clicks=0, style=EXPLORE_BTN_STYLE),
-            html.Button("Transport Focus", id="transport-btn", n_clicks=0, style=TRANSPORT_BTN_STYLE),
+            html.Button("TRANSPORT FOCUS", id="transport-btn", n_clicks=0, style=TRANSPORT_BTN_STYLE),
         ]
     ),
 
@@ -668,9 +672,10 @@ def update_menu_visuals(is_open):
      Input("focus-plot-btn", "n_clicks")],
     [State("compare-mode-store", "data"),
      State("compare-sheet-store", "data"),
-     State("explore-mode-store", "data")]
+     State("explore-mode-store", "data"),
+     State("transport-mode-store", "data")]
 )
-def compare_controller(n_compare, n_close, n_focus_map, n_focus_plot, is_active, sheet_state, explore_mode):
+def compare_controller(n_compare, n_close, n_focus_map, n_focus_plot, is_active, sheet_state, explore_mode, transport_mode):
     trigger = ctx.triggered_id
     if not trigger:
         return (dash.no_update,) * 7
@@ -692,7 +697,7 @@ def compare_controller(n_compare, n_close, n_focus_map, n_focus_plot, is_active,
     
     # ---- TOGGLE compare ----
     if trigger == "compare-btn":
-        if explore_mode and not is_active:
+        if (explore_mode or transport_mode) and not is_active:
             return (dash.no_update,) * 7
         new_state = not is_active
         if new_state:
@@ -742,9 +747,10 @@ def compare_controller(n_compare, n_close, n_focus_map, n_focus_plot, is_active,
      Input("focus-plot-explore-btn", "n_clicks")],
     [State("explore-mode-store", "data"),
      State("compare-mode-store", "data"),
-     State("explore-sheet-store", "data")]
+     State("explore-sheet-store", "data"),
+     State("transport-mode-store", "data")]
 )
-def explore_controller(n_explore, n_close, n_map, n_plot, is_active, compare_mode, sheet_state):
+def explore_controller(n_explore, n_close, n_map, n_plot, is_active, compare_mode, sheet_state, transport_mode):
     trigger = ctx.triggered_id
     if not trigger:
         return (dash.no_update,) * 5
@@ -764,7 +770,7 @@ def explore_controller(n_explore, n_close, n_map, n_plot, is_active, compare_mod
 
     # --- TOGGLE MAIN BUTTON ---
     if trigger == "explore-btn":
-        if compare_mode and not is_active:
+        if (compare_mode or transport_mode) and not is_active:
             return (dash.no_update,) * 5
 
         new_active = not is_active
@@ -807,11 +813,15 @@ def explore_controller(n_explore, n_close, n_map, n_plot, is_active, compare_mod
      Output("transport-btn", "style"),
      Output("transport-btn", "children")],
     [Input("transport-btn", "n_clicks")],
-    [State("transport-mode-store", "data")]
+    [State("transport-mode-store", "data"),
+     State("compare-mode-store", "data"),
+     State("explore-mode-store", "data")]
 )
-def toggle_transport_mode(btn_click, is_active):
+def toggle_transport_mode(btn_click, is_active, compare_mode, explore_mode):
     trigger = ctx.triggered_id
     if not trigger:
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+    if (compare_mode or explore_mode) and not is_active:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
     new_state = not is_active if trigger == "transport-btn" else False
@@ -825,7 +835,7 @@ def toggle_transport_mode(btn_click, is_active):
         return True, drawer_style, btn_style, "Close Transport"
     else:
         drawer_style["display"] = "none"
-        return False, drawer_style, TRANSPORT_BTN_STYLE, "Transport Focus"
+        return False, drawer_style, TRANSPORT_BTN_STYLE, "TRANSPORT FOCUS"
 
 
 # B4. Transport Rank Update (NEW)
@@ -973,29 +983,67 @@ def update_radar_visuals(is_open):
 
 # G. Store Brushed Countries from PCA
 @app.callback(
-    Output("brushed-countries-store", "data"),
+    Output("brushed-countries-store", "data", allow_duplicate=True),
     [Input(pca_scatter.html_id, "selectedData"),
      Input("explore-mode-store", "data")],
-    [State("explore-mode-store", "data")]
+    [State("explore-mode-store", "data")],
+    prevent_initial_call=True
 )
 def store_brushed_countries(selected_data, explore_mode_change, explore_mode_state):
     trigger = ctx.triggered_id
     
     # Clear selection when explore mode is closed
     if trigger == "explore-mode-store" and not explore_mode_state:
-        return []
+        return {"countries": [], "source": "clear"}
     
     # Update selection when points are selected
     if trigger == pca_scatter.html_id:
-        if selected_data is None or 'points' not in selected_data:
-            return []
+        if not selected_data or 'points' not in selected_data or not selected_data['points']:
+            return dash.no_update
         
         selected_indices = [point['pointIndex'] for point in selected_data['points']]
         brushed_countries = df.iloc[selected_indices]['Country'].tolist() if 'Country' in df.columns else []
         
-        return brushed_countries
+        return {"countries": brushed_countries, "source": "pca"}
     
     return dash.no_update
+
+
+# G2. Store Brushed Countries from Map Clicks (Explore Mode)
+@app.callback(
+    Output("brushed-countries-store", "data", allow_duplicate=True),
+    [Input(map_view.html_id, "clickData"),
+     Input("explore-mode-store", "data")],
+    [State("brushed-countries-store", "data"),
+     State("explore-mode-store", "data")],
+    prevent_initial_call=True
+)
+def store_brushed_from_map(map_click, explore_mode_change, brushed_countries, explore_mode_state):
+    trigger = ctx.triggered_id
+
+    if trigger == "explore-mode-store" and not explore_mode_state:
+        return {"countries": [], "source": "clear"}
+
+    if trigger != map_view.html_id:
+        return dash.no_update
+
+    if not explore_mode_state or not map_click:
+        return dash.no_update
+
+    country = map_click["points"][0].get("location")
+    if not country:
+        return dash.no_update
+
+    if isinstance(brushed_countries, dict):
+        current = brushed_countries.get("countries", [])
+    else:
+        current = brushed_countries or []
+
+    if country in current:
+        updated = [c for c in current if c != country]
+    else:
+        updated = current + [country]
+    return {"countries": updated, "source": "map"}
 
 
 # H. Map Update (Aggiornata per includere il filtro daltonismo)
@@ -1011,8 +1059,13 @@ def update_map(selected_risk, brushed_countries, selected_countries, transport_s
     # Determina se la modalità daltonismo è attiva
     is_colorblind = True if cb_value and 'active' in cb_value else False
 
+    if isinstance(brushed_countries, dict):
+        brushed_list = brushed_countries.get("countries", [])
+    else:
+        brushed_list = brushed_countries or []
+
     # Combina le liste per l'evidenziazione
-    all_highlighted = list(set(brushed_countries + selected_countries + transport_selected))
+    all_highlighted = list(set(brushed_list + selected_countries + transport_selected))
 
     # Chiama il metodo update passando il nuovo parametro
     return map_view.update(selected_risk, all_highlighted, is_colorblind)
@@ -1033,17 +1086,33 @@ def update_radar_data(click_data, selected_risk):
 # J. PCA Graph Update (when in explore mode)
 @app.callback(
     Output(pca_scatter.html_id, "figure"),
-    [Input("explore-mode-store", "data")],
-    [State(pca_scatter.html_id, "selectedData")]
+    [Input("explore-mode-store", "data"),
+     Input("brushed-countries-store", "data")]
 )
-def update_pca_graph(explore_mode, selected_data):
+def update_pca_graph(explore_mode, brushed_countries):
     trigger = ctx.triggered_id
-    
-    # Only update when explore mode changes, not when selection changes
-    if trigger == "explore-mode-store":
-        selected_color = "rgb(17, 153, 142)"  # Matching the explore button color
-        return pca_scatter.update(selected_color, selected_data)
-    return dash.no_update
+
+    if not explore_mode:
+        return dash.no_update
+
+    source = None
+    if isinstance(brushed_countries, dict):
+        brushed_list = brushed_countries.get("countries", [])
+        source = brushed_countries.get("source")
+    else:
+        brushed_list = brushed_countries or []
+
+    # If selection comes from the PCA itself, don't redraw the figure
+    # (keeps the selection box/lasso interactive).
+    if trigger == "brushed-countries-store" and source == "pca":
+        return dash.no_update
+
+    selected_color = "rgb(17, 153, 142)"  # Matching the explore button color
+    selected_indices = None
+    if brushed_list:
+        selected_indices = df[df["Country"].isin(brushed_list)].index.tolist()
+
+    return pca_scatter.update(selected_color, selected_indices)
 
 
 # K. Logic for Methodology Tooltip (?)
@@ -1071,3 +1140,4 @@ def toggle_methodology_info(n_open, n_backdrop, card_style, backdrop_style):
 
 if __name__ == '__main__':
     app.run_server(debug=True)
+

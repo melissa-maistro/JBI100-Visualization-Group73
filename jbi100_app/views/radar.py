@@ -8,7 +8,13 @@ class RadarView(html.Div):
         self.df = df
 
         # Ordine degli assi
-        self.risk_cols = ['Economic Risk', 'Demographic Risk', 'Infrastructure Risk', 'Social Risk']
+        self.risk_cols = [
+            'Economic Risk',
+            'Demographic Risk',
+            'Infrastructure Risk',
+            'Social Risk',
+            'Transport Constraint',
+        ]
 
         super().__init__(
             className="radar_card",
@@ -32,7 +38,8 @@ class RadarView(html.Div):
             'Economic Risk': 'Economic',
             'Social Risk': 'Social',
             'Infrastructure Risk': 'Infrastr.',
-            'Demographic Risk': 'Demographic'
+            'Demographic Risk': 'Demographic',
+            'Transport Constraint': 'Transport'
         }
 
         display_categories = [short_labels.get(col, col) for col in self.risk_cols]
