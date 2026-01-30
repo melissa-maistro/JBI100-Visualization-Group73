@@ -104,10 +104,12 @@ class Scatterplot(html.Div):
         # Highlight selected points
         if selected_data is None:
             selected_index = self.df.index
+        elif isinstance(selected_data, list):
+            selected_index = selected_data
         else:
             selected_index = [
                 x.get('pointIndex', None)
-                for x in selected_data['points']
+                for x in selected_data.get('points', [])
             ]
 
         self.fig.data[0].update(
