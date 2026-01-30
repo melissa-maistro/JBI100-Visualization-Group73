@@ -39,12 +39,13 @@ class MapView(html.Div):
             ],
         )
 
-    def update(self, selected_risk, highlight_countries=None):
-        # Verifica se il rischio selezionato esiste
+    def update(self, selected_risk, highlight_countries=None, colorblind_mode=False):
         if selected_risk not in self.df.columns:
             return {}
 
-        # Create base choropleth with risk data
+        # Scegli la scala colore in base alla modalità
+        colorscale = "Viridis" if colorblind_mode else "RdYlGn_r"
+
         fig = px.choropleth(
             self.df,
             locations="Country",
@@ -52,7 +53,7 @@ class MapView(html.Div):
             color=selected_risk,
             hover_name="Country",
             hover_data={'Country': False},
-            color_continuous_scale="RdYlGn_r",
+            color_continuous_scale=colorscale,
             range_color=[0, 1],
             projection="natural earth"
         )
@@ -63,7 +64,7 @@ class MapView(html.Div):
             marker_opacity=0.85
         )
 
-        # --- EVIDENZIA PAESI SELEZIONATI (overlay cyan) ---
+        # Overlay per i paesi evidenziati
         if highlight_countries:
             highlight_df = self.df[self.df['Country'].isin(highlight_countries)]
             if not highlight_df.empty:
@@ -71,52 +72,31 @@ class MapView(html.Div):
                     locations=highlight_df['Country'],
                     locationmode='country names',
                     z=highlight_df[selected_risk],
-                    colorscale="RdYlGn_r",
+                    colorscale=colorscale,
                     zmin=0, zmax=1,
                     showscale=False,
-                    marker=dict(
-                        line=dict(color='cyan', width=3),
-                        opacity=1
-                    ),
+                    marker=dict(line=dict(color='cyan', width=3), opacity=1),
                     hoverinfo='skip'
                 ))
 
         fig.update_layout(
             dragmode="pan",
-            # Preserve zoom/pan across updates unless the selected layer changes
             uirevision=selected_risk,
-            margin=dict(l=0, r=0, t=0, b=0, pad=0, autoexpand=False),
+            margin=dict(l=0, r=0, t=50, b=0, pad=0, autoexpand=False),
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
             geo=dict(
                 showframe=False,
                 showcoastlines=False,
                 projection_type='natural earth',
-                projection_scale=1.05,
-                center=dict(lat=0, lon=0)
-            ),
-            title=dict(
-                text=f"Global risk map: {selected_risk}",
-                y=0.95, x=0.86,
-                font=dict(family="Helvetica, Arial, sans-serif", size=20, color="#333"),
-                xanchor='center', yanchor='top',
-                automargin=False,
-                pad=dict(t=10)
+                projection_scale=1.05
             ),
             coloraxis_colorbar=dict(
                 title="Risk Level",
                 x=0.11,
-                xanchor="center",
                 y=0.5,
-                yanchor="middle",
                 len=0.4,
                 thickness=15
-            ),
-            hoverlabel=dict(
-                bgcolor="rgba(255, 255, 255, 0.95)",
-                font_size=15,
-                bordercolor="#333",
-                namelength=-1
             )
         )
 

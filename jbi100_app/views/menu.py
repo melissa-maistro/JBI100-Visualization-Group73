@@ -35,9 +35,17 @@ def generate_control_card():
                 labelStyle={'display': 'block', 'marginBottom': '8px', 'fontSize': '13px'},
                 style={'marginTop': '10px'}
             ),
+            # --- NUOVA SEZIONE ACCESSIBILITÀ ---
+            html.Hr(style={'margin': '20px 0'}),
+            html.Label("Accessibility", style={'fontWeight': 'bold', 'fontSize': '14px', 'marginBottom': '10px'}),
+            dcc.Checklist(
+                id="colorblind-mode",
+                options=[{'label': ' Colorblind Friendly Mode', 'value': 'active'}],
+                value=[],
+                style={'fontSize': '13px', 'marginTop': '5px'}
+            ),
         ],
     )
-
 
 def generate_info_tooltip():
     """
@@ -65,7 +73,7 @@ def generate_info_tooltip():
     card_style = {
         'position': 'absolute',
         'top': '35px',
-        'right': '0px',
+        'right': '20pxpx',
         'width': '260px',
         'backgroundColor': 'white',
         'border': '1px solid #ccc',
@@ -143,6 +151,15 @@ def generate_info_tooltip():
                             html.B("📉 Demographic"),
                             html.Ul([
                                 html.Li("Growth (+), Median Age (Inv)")
+                            ], style={'paddingLeft': '15px', 'margin': '2px 0 0 0'})
+                        ]),
+
+                        html.Div([
+                            html.B("🛣️ Transport Intervention"),
+                            html.Ul([
+                                html.Li("Runways (paved + unpaved), Roads, Railways, Waterways"),
+                                html.Li("Density per population/area → log + normalize"),
+                                html.Li("Constraint = 1 − Supply (higher = worse)")
                             ], style={'paddingLeft': '15px', 'margin': '2px 0 0 0'})
                         ]),
 

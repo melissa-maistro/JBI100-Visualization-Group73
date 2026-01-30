@@ -32,6 +32,7 @@ class TransportRankView(html.Div):
             "#1E88E5" if c in selected_countries else "#E57373"
             for c in plot_df["Country"]
         ]
+        y_vals = plot_df["Country"].tolist()
 
         fig = go.Figure(
             data=[
@@ -56,7 +57,16 @@ class TransportRankView(html.Div):
                 range=[0, 1],
                 gridcolor="rgba(200, 200, 200, 0.3)"
             ),
-            yaxis=dict(autorange="reversed"),
+            yaxis=dict(
+                autorange="reversed",
+                categoryorder="array",
+                categoryarray=y_vals,
+                tickmode="array",
+                tickvals=y_vals,
+                ticktext=y_vals,
+                tickfont=dict(size=11),
+                automargin=True
+            ),
             margin=dict(l=80, r=20, t=40, b=40),
             paper_bgcolor="white",
             plot_bgcolor="white"

@@ -123,7 +123,7 @@ PCA_CONTAINER_STYLE = {
     "boxSizing": "border-box"
 }
 
-# 6. Compare Button Style
+# 6. Compare Button Style (Aggiornato)
 COMPARE_BTN_STYLE = {
     "background": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
     "color": "white",
@@ -137,7 +137,12 @@ COMPARE_BTN_STYLE = {
     "letterSpacing": "0.5px",
     "transition": "transform 0.2s, box-shadow 0.2s",
     "textTransform": "uppercase",
-    "whiteSpace": "nowrap"
+    "whiteSpace": "nowrap",
+    # Proprietà per centrare il testo:
+    "display": "flex",
+    "alignItems": "center",
+    "justifyContent": "center",
+    "textAlign": "center"
 }
 
 # 7. Compare Panel Style
@@ -179,7 +184,7 @@ SHEET_EXPANDED_HEIGHT = "65vh"
 # Keep old style name for backwards compatibility
 COMPARE_DRAWER_STYLE = COMPARE_SHEET_BASE_STYLE
 
-# 9. Explore Button Style (NEW)
+# 9. Explore Button Style (Aggiornato)
 EXPLORE_BTN_STYLE = {
     "background": "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
     "color": "white",
@@ -193,35 +198,46 @@ EXPLORE_BTN_STYLE = {
     "letterSpacing": "0.5px",
     "transition": "transform 0.2s, box-shadow 0.2s",
     "textTransform": "uppercase",
-    "whiteSpace": "nowrap"
+    "whiteSpace": "nowrap",
+    # Proprietà per centrare il testo:
+    "display": "flex",
+    "alignItems": "center",
+    "justifyContent": "center",
+    "textAlign": "center"
 }
 
 # 10. Transport Button Style (NEW)
 TRANSPORT_BTN_STYLE = {
     "background": "linear-gradient(135deg, #f7971e 0%, #ffd200 100%)",
-    "color": "#2c3e50",
+    "color": "white",
     "border": "none",
-    "padding": "10px 22px",
+    "padding": "10px 25px",
     "borderRadius": "50px",
     "cursor": "pointer",
     "boxShadow": "0 4px 15px rgba(0,0,0,0.2)",
     "fontWeight": "bold",
-    "fontSize": "13px",
-    "letterSpacing": "0.4px",
+    "fontSize": "14px",
+    "letterSpacing": "0.5px",
     "transition": "transform 0.2s, box-shadow 0.2s",
     "textTransform": "uppercase",
-    "whiteSpace": "nowrap"
+    "whiteSpace": "nowrap",
+    # Proprieta per centrare il testo:
+    "display": "flex",
+    "alignItems": "center",
+    "justifyContent": "center",
+    "textAlign": "center"
 }
-
 # 10.5 Top Button Row Style (NEW)
 TOP_BUTTON_ROW_STYLE = {
     "position": "fixed",
     "top": "25px",
-    "left": "90px",
-    "zIndex": 2100,
+    "left": "50%",            # Sposta l'inizio al 50% della larghezza
+    "transform": "translateX(-50%)", # Riporta indietro della metà della sua larghezza per centrare perfettamente
+    "zIndex": 1800,
     "display": "flex",
     "gap": "14px",
-    "alignItems": "center"
+    "alignItems": "center",
+    "justifyContent": "center" # Centra i bottoni all'interno della riga
 }
 
 # 11. Transport Drawer Style (NEW)
@@ -246,13 +262,15 @@ app.layout = html.Div([
     dcc.Store(id='menu-state-store', data=False),
     dcc.Store(id='radar-state-store', data=False),
     dcc.Store(id='pca-state-store', data=False),
-    dcc.Store(id='brushed-countries-store', data=[]),
+    dcc.Store(id='brushed-countries-store', data={"countries": [], "source": None}),
     dcc.Store(id='compare-mode-store', data=False),
     dcc.Store(id='selected-countries-store', data=[]),
     dcc.Store(id='explore-mode-store', data=False),  # NEW
+    dcc.Store(id='explore-sheet-store', data='collapsed'),
     dcc.Store(id='compare-sheet-store', data='collapsed'),  # NEW for sheet state
     dcc.Store(id='transport-mode-store', data=False),  # NEW
     dcc.Store(id='transport-selected-store', data=[]),  # NEW
+    dcc.Store(id='colorblind-state-store', data=False),
     
     # Invisible overlay to capture clicks anywhere on screen
     html.Div(
@@ -280,7 +298,7 @@ app.layout = html.Div([
         children=[
             html.Button("Compare Countries", id="compare-btn", n_clicks=0, style=COMPARE_BTN_STYLE),
             html.Button("Explore Correlations", id="explore-btn", n_clicks=0, style=EXPLORE_BTN_STYLE),
-            html.Button("Transport Focus", id="transport-btn", n_clicks=0, style=TRANSPORT_BTN_STYLE),
+            html.Button("TRANSPORT FOCUS", id="transport-btn", n_clicks=0, style=TRANSPORT_BTN_STYLE),
         ]
     ),
 
@@ -376,7 +394,7 @@ app.layout = html.Div([
         html.Div(compare_view, style={"height": "calc(100% - 60px)", "width": "100%"})
     ]),
 
-    # Explore Correlations Drawer (NEW - replaces the floating PCA)
+    # Explore Correlations Drawer (AGGIORNATO CON TASTI FOCUS)
     html.Div(id="explore-drawer", style=PCA_CONTAINER_STYLE, children=[
         html.Div(
             style={
@@ -396,25 +414,63 @@ app.layout = html.Div([
                     "fontSize": "18px",
                     "letterSpacing": "0.3px"
                 }),
-                html.Button(
-                    "×",
-                    id="close-explore-btn",
-                    n_clicks=0,
-                    style={
-                        "background": "transparent",
-                        "border": "none",
-                        "fontSize": "28px",
-                        "cursor": "pointer",
-                        "color": "#95a5a6",
-                        "transition": "color 0.2s",
-                        "padding": "0",
-                        "width": "32px",
-                        "height": "32px",
-                        "display": "flex",
-                        "alignItems": "center",
-                        "justifyContent": "center",
-                        "borderRadius": "50%"
-                    }
+                html.Div(
+                    style={"display": "flex", "gap": "10px", "alignItems": "center"},
+                    children=[
+                        # Tasto Focus Map
+                        html.Button(
+                            "Focus Map",
+                            id="focus-map-explore-btn",
+                            n_clicks=0,
+                            style={
+                                "background": "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",  # Tema Verde
+                                "color": "white",
+                                "border": "none",
+                                "padding": "6px 16px",
+                                "borderRadius": "20px",
+                                "cursor": "pointer",
+                                "fontSize": "12px",
+                                "fontWeight": "600"
+                            }
+                        ),
+                        # Tasto Focus Plot
+                        html.Button(
+                            "Focus Plot",
+                            id="focus-plot-explore-btn",
+                            n_clicks=0,
+                            style={
+                                "background": "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",  # Tema Verde
+                                "color": "white",
+                                "border": "none",
+                                "padding": "6px 16px",
+                                "borderRadius": "20px",
+                                "cursor": "pointer",
+                                "fontSize": "12px",
+                                "fontWeight": "600"
+                            }
+                        ),
+                        # Tasto Chiudi (X)
+                        html.Button(
+                            "×",
+                            id="close-explore-btn",
+                            n_clicks=0,
+                            style={
+                                "background": "transparent",
+                                "border": "none",
+                                "fontSize": "28px",
+                                "cursor": "pointer",
+                                "color": "#95a5a6",
+                                "transition": "color 0.2s",
+                                "padding": "0",
+                                "width": "32px",
+                                "height": "32px",
+                                "display": "flex",
+                                "alignItems": "center",
+                                "justifyContent": "center",
+                                "borderRadius": "50%"
+                            }
+                        )
+                    ]
                 )
             ]
         ),
@@ -422,7 +478,7 @@ app.layout = html.Div([
             dcc.Graph(
                 id=pca_scatter.html_id,
                 figure=pca_scatter.update('rgb(255,100,100)', None),
-                style={"height": "calc(100% - 60px)"}
+                style={"height": "calc(100% - 60px)"}  # Altezza relativa al contenitore
             ),
             style={"flex": "1", "overflow": "hidden"}
         )
@@ -616,9 +672,10 @@ def update_menu_visuals(is_open):
      Input("focus-plot-btn", "n_clicks")],
     [State("compare-mode-store", "data"),
      State("compare-sheet-store", "data"),
-     State("explore-mode-store", "data")]
+     State("explore-mode-store", "data"),
+     State("transport-mode-store", "data")]
 )
-def compare_controller(n_compare, n_close, n_focus_map, n_focus_plot, is_active, sheet_state, explore_mode):
+def compare_controller(n_compare, n_close, n_focus_map, n_focus_plot, is_active, sheet_state, explore_mode, transport_mode):
     trigger = ctx.triggered_id
     if not trigger:
         return (dash.no_update,) * 7
@@ -640,7 +697,7 @@ def compare_controller(n_compare, n_close, n_focus_map, n_focus_plot, is_active,
     
     # ---- TOGGLE compare ----
     if trigger == "compare-btn":
-        if explore_mode and not is_active:
+        if (explore_mode or transport_mode) and not is_active:
             return (dash.no_update,) * 7
         new_state = not is_active
         if new_state:
@@ -677,38 +734,77 @@ def compare_controller(n_compare, n_close, n_focus_map, n_focus_plot, is_active,
     return True, search_style, drawer_style, btn_style, "Stop Comparing", dash.no_update, new_sheet_state
 
 
-# B2. Explore Mode Logic (NEW)
+# B2. Explore Mode Logic (Apertura immediata in Focus Plot)
 @app.callback(
     [Output("explore-mode-store", "data"),
      Output("explore-drawer", "style"),
      Output("explore-btn", "style"),
-     Output("explore-btn", "children")],
+     Output("explore-btn", "children"),
+     Output("explore-sheet-store", "data")],
     [Input("explore-btn", "n_clicks"),
-     Input("close-explore-btn", "n_clicks")],
+     Input("close-explore-btn", "n_clicks"),
+     Input("focus-map-explore-btn", "n_clicks"),
+     Input("focus-plot-explore-btn", "n_clicks")],
     [State("explore-mode-store", "data"),
-     State("compare-mode-store", "data")]
+     State("compare-mode-store", "data"),
+     State("explore-sheet-store", "data"),
+     State("transport-mode-store", "data")]
 )
-def toggle_explore_mode(btn_click, close_click, is_active, compare_mode):
+def explore_controller(n_explore, n_close, n_map, n_plot, is_active, compare_mode, sheet_state, transport_mode):
     trigger = ctx.triggered_id
     if not trigger:
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return (dash.no_update,) * 5
 
-    new_state = not is_active if trigger == "explore-btn" else False
-    
     drawer_style = PCA_CONTAINER_STYLE.copy()
     btn_style = EXPLORE_BTN_STYLE.copy()
+    # Centratura testo
+    btn_style.update({"display": "flex", "alignItems": "center", "justifyContent": "center", "textAlign": "center"})
 
-    if new_state:
-        if compare_mode:
-            return dash.no_update, dash.no_update, dash.no_update, dash.no_update
-        drawer_style["display"] = "flex"
-        drawer_style["flexDirection"] = "column"
-        btn_style["background"] = "linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)"
-        return True, drawer_style, btn_style, "Close Explorer"
-    else:
+    new_sheet_state = sheet_state or "collapsed"
+
+    # --- CLOSE ---
+    if trigger == "close-explore-btn":
         drawer_style["display"] = "none"
-        return False, drawer_style, EXPLORE_BTN_STYLE, "Explore Correlations"
+        drawer_style["height"] = SHEET_COLLAPSED_HEIGHT
+        return False, drawer_style, btn_style, "Explore Correlations", "collapsed"
 
+    # --- TOGGLE MAIN BUTTON ---
+    if trigger == "explore-btn":
+        if (compare_mode or transport_mode) and not is_active:
+            return (dash.no_update,) * 5
+
+        new_active = not is_active
+        if new_active:
+            # OPEN -> MODIFICA QUI: Impostiamo subito l'altezza ESPANSA
+            drawer_style["display"] = "flex"
+            drawer_style["flexDirection"] = "column"
+            drawer_style["height"] = SHEET_EXPANDED_HEIGHT  # <--- Apre grande (Focus Plot)
+            btn_style["background"] = "linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)"
+
+            # Impostiamo lo stato iniziale come 'expanded'
+            return True, drawer_style, btn_style, "Close Explorer", "expanded"
+        else:
+            # CLOSE
+            drawer_style["display"] = "none"
+            return False, drawer_style, btn_style, "Explore Correlations", "collapsed"
+
+    # --- FOCUS LOGIC ---
+    if not is_active:
+        return (dash.no_update,) * 5
+
+    if trigger == "focus-plot-explore-btn":
+        new_sheet_state = "expanded"
+    elif trigger == "focus-map-explore-btn":
+        new_sheet_state = "collapsed"
+
+    drawer_style["display"] = "flex"
+    drawer_style["flexDirection"] = "column"
+    drawer_style["height"] = SHEET_EXPANDED_HEIGHT if new_sheet_state == "expanded" else SHEET_COLLAPSED_HEIGHT
+
+    btn_style["background"] = "linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)"
+
+    # Restituiamo dash.no_update per non perdere la selezione durante i resize successivi
+    return dash.no_update, drawer_style, btn_style, "Close Explorer", new_sheet_state
 
 # B3. Transport Mode Logic (NEW)
 @app.callback(
@@ -717,11 +813,15 @@ def toggle_explore_mode(btn_click, close_click, is_active, compare_mode):
      Output("transport-btn", "style"),
      Output("transport-btn", "children")],
     [Input("transport-btn", "n_clicks")],
-    [State("transport-mode-store", "data")]
+    [State("transport-mode-store", "data"),
+     State("compare-mode-store", "data"),
+     State("explore-mode-store", "data")]
 )
-def toggle_transport_mode(btn_click, is_active):
+def toggle_transport_mode(btn_click, is_active, compare_mode, explore_mode):
     trigger = ctx.triggered_id
     if not trigger:
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+    if (compare_mode or explore_mode) and not is_active:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
     new_state = not is_active if trigger == "transport-btn" else False
@@ -735,7 +835,7 @@ def toggle_transport_mode(btn_click, is_active):
         return True, drawer_style, btn_style, "Close Transport"
     else:
         drawer_style["display"] = "none"
-        return False, drawer_style, TRANSPORT_BTN_STYLE, "Transport Focus"
+        return False, drawer_style, TRANSPORT_BTN_STYLE, "TRANSPORT FOCUS"
 
 
 # B4. Transport Rank Update (NEW)
@@ -834,9 +934,24 @@ def update_compare_view(selected_countries):
      State("explore-mode-store", "data")]
 )
 def toggle_radar_visibility(map_click, close_click, is_open, is_compare_mode, is_explore_mode):
-    trigger = ctx.triggered_id
-    if not trigger:
+    if not ctx.triggered:
         return is_open, dash.no_update
+
+    triggered_ids = {t["prop_id"].split(".")[0] for t in ctx.triggered}
+
+    # If compare mode or explore mode is active, radar stays closed
+    if is_compare_mode or is_explore_mode:
+        return False, dash.no_update
+
+    # Close always wins (prevents accidental reopen from map clicks)
+    if "close-radar-btn" in triggered_ids:
+        return False, None
+
+    if map_view.html_id in triggered_ids and map_click:
+        return True, dash.no_update
+
+    return is_open, dash.no_update
+
 
     # If compare mode or explore mode is active, radar stays closed
     if is_compare_mode or is_explore_mode:
@@ -859,51 +974,101 @@ def update_radar_visuals(is_open):
     style = RADAR_CONTAINER_STYLE.copy()
     if is_open:
         style["transform"] = "translateX(0)"
+        style["display"] = "flex"
     else:
         style["transform"] = "translateX(130%)"
+        style["display"] = "none"
     return style
 
 
 # G. Store Brushed Countries from PCA
 @app.callback(
-    Output("brushed-countries-store", "data"),
+    Output("brushed-countries-store", "data", allow_duplicate=True),
     [Input(pca_scatter.html_id, "selectedData"),
      Input("explore-mode-store", "data")],
-    [State("explore-mode-store", "data")]
+    [State("explore-mode-store", "data")],
+    prevent_initial_call=True
 )
 def store_brushed_countries(selected_data, explore_mode_change, explore_mode_state):
     trigger = ctx.triggered_id
     
     # Clear selection when explore mode is closed
     if trigger == "explore-mode-store" and not explore_mode_state:
-        return []
+        return {"countries": [], "source": "clear"}
     
     # Update selection when points are selected
     if trigger == pca_scatter.html_id:
-        if selected_data is None or 'points' not in selected_data:
-            return []
+        if not selected_data or 'points' not in selected_data or not selected_data['points']:
+            return dash.no_update
         
         selected_indices = [point['pointIndex'] for point in selected_data['points']]
         brushed_countries = df.iloc[selected_indices]['Country'].tolist() if 'Country' in df.columns else []
         
-        return brushed_countries
+        return {"countries": brushed_countries, "source": "pca"}
     
     return dash.no_update
 
 
-# H. Map Update (with Brushed and Selected Countries)
+# G2. Store Brushed Countries from Map Clicks (Explore Mode)
+@app.callback(
+    Output("brushed-countries-store", "data", allow_duplicate=True),
+    [Input(map_view.html_id, "clickData"),
+     Input("explore-mode-store", "data")],
+    [State("brushed-countries-store", "data"),
+     State("explore-mode-store", "data")],
+    prevent_initial_call=True
+)
+def store_brushed_from_map(map_click, explore_mode_change, brushed_countries, explore_mode_state):
+    trigger = ctx.triggered_id
+
+    if trigger == "explore-mode-store" and not explore_mode_state:
+        return {"countries": [], "source": "clear"}
+
+    if trigger != map_view.html_id:
+        return dash.no_update
+
+    if not explore_mode_state or not map_click:
+        return dash.no_update
+
+    country = map_click["points"][0].get("location")
+    if not country:
+        return dash.no_update
+
+    if isinstance(brushed_countries, dict):
+        current = brushed_countries.get("countries", [])
+    else:
+        current = brushed_countries or []
+
+    if country in current:
+        updated = [c for c in current if c != country]
+    else:
+        updated = current + [country]
+    return {"countries": updated, "source": "map"}
+
+
+# H. Map Update (Aggiornata per includere il filtro daltonismo)
 @app.callback(
     Output(map_view.html_id, "figure"),
     [Input("select-risk-variable", "value"),
      Input("brushed-countries-store", "data"),
      Input("selected-countries-store", "data"),
-     Input("transport-selected-store", "data")]
+     Input("transport-selected-store", "data"),
+     Input("colorblind-mode", "value")]  # Input diretto dal checklist del menu
 )
-def update_map(selected_risk, brushed_countries, selected_countries, transport_selected):
-    # Combine both lists for highlighting
-    all_highlighted = list(set(brushed_countries + selected_countries + transport_selected))
-    return map_view.update(selected_risk, all_highlighted)
+def update_map(selected_risk, brushed_countries, selected_countries, transport_selected, cb_value):
+    # Determina se la modalità daltonismo è attiva
+    is_colorblind = True if cb_value and 'active' in cb_value else False
 
+    if isinstance(brushed_countries, dict):
+        brushed_list = brushed_countries.get("countries", [])
+    else:
+        brushed_list = brushed_countries or []
+
+    # Combina le liste per l'evidenziazione
+    all_highlighted = list(set(brushed_list + selected_countries + transport_selected))
+
+    # Chiama il metodo update passando il nuovo parametro
+    return map_view.update(selected_risk, all_highlighted, is_colorblind)
 
 # I. Radar Data Update
 @app.callback(
@@ -912,26 +1077,67 @@ def update_map(selected_risk, brushed_countries, selected_countries, transport_s
      Input("select-risk-variable", "value")]
 )
 def update_radar_data(click_data, selected_risk):
-    country = click_data['points'][0]['location'] if click_data else None
+    if not click_data:
+        return dash.no_update
+    country = click_data['points'][0]['location']
     return radar_view.update(country, selected_risk)
 
 
 # J. PCA Graph Update (when in explore mode)
 @app.callback(
     Output(pca_scatter.html_id, "figure"),
-    [Input("explore-mode-store", "data")],
-    [State(pca_scatter.html_id, "selectedData")]
+    [Input("explore-mode-store", "data"),
+     Input("brushed-countries-store", "data")]
 )
-def update_pca_graph(explore_mode, selected_data):
+def update_pca_graph(explore_mode, brushed_countries):
     trigger = ctx.triggered_id
-    
-    # Only update when explore mode changes, not when selection changes
-    if trigger == "explore-mode-store":
-        selected_color = "rgb(17, 153, 142)"  # Matching the explore button color
-        return pca_scatter.update(selected_color, selected_data)
-    
-    return dash.no_update
+
+    if not explore_mode:
+        return dash.no_update
+
+    source = None
+    if isinstance(brushed_countries, dict):
+        brushed_list = brushed_countries.get("countries", [])
+        source = brushed_countries.get("source")
+    else:
+        brushed_list = brushed_countries or []
+
+    # If selection comes from the PCA itself, don't redraw the figure
+    # (keeps the selection box/lasso interactive).
+    if trigger == "brushed-countries-store" and source == "pca":
+        return dash.no_update
+
+    selected_color = "rgb(17, 153, 142)"  # Matching the explore button color
+    selected_indices = None
+    if brushed_list:
+        selected_indices = df[df["Country"].isin(brushed_list)].index.tolist()
+
+    return pca_scatter.update(selected_color, selected_indices)
+
+
+# K. Logic for Methodology Tooltip (?)
+@app.callback(
+    [Output("info-card", "style"),
+     Output("info-backdrop", "style")],
+    [Input("open-info-btn", "n_clicks"),
+     Input("info-backdrop", "n_clicks")],
+    [State("info-card", "style"),
+     State("info-backdrop", "style")]
+)
+def toggle_methodology_info(n_open, n_backdrop, card_style, backdrop_style):
+    trigger = ctx.triggered_id
+
+    # Se clicchi sul pulsante o sullo sfondo
+    if trigger == "open-info-btn" and n_open > 0:
+        card_style["display"] = "block"
+        backdrop_style["display"] = "block"
+    elif trigger == "info-backdrop":
+        card_style["display"] = "none"
+        backdrop_style["display"] = "none"
+
+    return card_style, backdrop_style
 
 
 if __name__ == '__main__':
     app.run_server(debug=True)
+

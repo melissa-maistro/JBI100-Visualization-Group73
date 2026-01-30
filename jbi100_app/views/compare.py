@@ -11,6 +11,7 @@ class CompareView(html.Div):
             "Social Risk",
             "Infrastructure Risk",
             "Demographic Risk",
+            "Transport Constraint",
         ]
 
         super().__init__(
