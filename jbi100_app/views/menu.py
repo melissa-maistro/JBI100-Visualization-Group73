@@ -2,6 +2,9 @@ from dash import dcc, html
 
 
 def generate_description_card():
+    """
+    Generates the header section of the menu (Title and short intro).
+    """
     return html.Div(
         id="description-card",
         children=[
@@ -17,6 +20,11 @@ def generate_description_card():
 
 
 def generate_control_card():
+    """
+    Generates the control section containing:
+    1. Radio buttons to select the Risk Variable.
+    2. Checklist to toggle Colorblind Mode.
+    """
     return html.Div(
         id="control-card",
         children=[
@@ -35,7 +43,8 @@ def generate_control_card():
                 labelStyle={'display': 'block', 'marginBottom': '8px', 'fontSize': '13px'},
                 style={'marginTop': '10px'}
             ),
-            # --- NUOVA SEZIONE ACCESSIBILITÀ ---
+
+            # --- ACCESSIBILITY SECTION ---
             html.Hr(style={'margin': '20px 0'}),
             html.Label("Accessibility", style={'fontWeight': 'bold', 'fontSize': '14px', 'marginBottom': '10px'}),
             dcc.Checklist(
@@ -47,33 +56,33 @@ def generate_control_card():
         ],
     )
 
+
 def generate_info_tooltip():
     """
-    Backdrop (Sfondo click-away) e Scheda Informativa.
-    Usa 'position: fixed' con coordinate negative per garantire la copertura
-    anche se il genitore ha trasformazioni CSS.
+    Creates the 'Methodology' tooltip with a click-away backdrop.
+    Uses 'position: fixed' with negative coordinates to ensure the backdrop
+    covers the entire screen even if parent elements have CSS transforms.
     """
 
-    # 1. Stile dello Sfondo Invisibile (Backdrop)
-    # Usiamo margini negativi enormi per assicurarci di coprire tutto lo schermo
-    # anche se il contenitore padre (il menu) è spostato o animato.
+    # 1. Invisible Backdrop Style
+    # Huge negative margins ensure it captures clicks outside the menu context
     backdrop_style = {
         'position': 'fixed',
         'top': '-100vh',
         'left': '-100vw',
-        'width': '300vw',  # Molto più grande dello schermo
-        'height': '300vh',  # Molto più grande dello schermo
+        'width': '300vw',  # Much larger than viewport
+        'height': '300vh',
         'zIndex': 2998,
-        'display': 'none',  # IMPORTANTE: Nascosto all'inizio
+        'display': 'none',  # Hidden initially
         'cursor': 'default',
         'backgroundColor': 'transparent'
     }
 
-    # 2. Stile della Scheda
+    # 2. Tooltip Card Style
     card_style = {
         'position': 'absolute',
-        'top': '35px',
-        'right': '20pxpx',
+        'top': '-10px',
+        'left': '45px',
         'width': '260px',
         'backgroundColor': 'white',
         'border': '1px solid #ccc',
@@ -85,14 +94,14 @@ def generate_info_tooltip():
         'boxShadow': '0 4px 20px rgba(0,0,0,0.3)',
         'zIndex': 2999,
         'textAlign': 'left',
-        'display': 'none'  # IMPORTANTE: Nascosto all'inizio
+        'display': 'none'  # Hidden initially
     }
 
     return html.Div([
-        # Backdrop per chiudere cliccando fuori
+        # Backdrop to handle closing when clicking outside
         html.Div(id="info-backdrop", style=backdrop_style, n_clicks=0),
 
-        # Wrapper Bottone + Scheda
+        # Button + Card Wrapper
         html.Div(
             style={
                 'position': 'absolute',
@@ -101,7 +110,7 @@ def generate_info_tooltip():
                 'zIndex': 3000
             },
             children=[
-                # Bottone "?"
+                # The "?" Button
                 html.Div(
                     "?",
                     id="open-info-btn",
@@ -117,7 +126,7 @@ def generate_info_tooltip():
                     title="Show Methodology"
                 ),
 
-                # Scheda Contenuto
+                # The Content Card
                 html.Div(
                     id="info-card",
                     style=card_style,
@@ -174,10 +183,13 @@ def generate_info_tooltip():
 
 
 def make_menu_layout():
+    """
+    Assembles the main floating menu.
+    """
     return html.Div(
         id="floating-menu",
         children=[
-            generate_info_tooltip(),  # Inseriamo il tooltip
+            generate_info_tooltip(),
             generate_description_card(),
             html.Hr(style={'margin': '15px 0'}),
             generate_control_card(),

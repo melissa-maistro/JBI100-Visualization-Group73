@@ -3,6 +3,10 @@ import plotly.graph_objects as go
 
 
 class TransportRankView(html.Div):
+    """
+    Bar Chart showing countries ranked by 'Transport Constraint'.
+    Helps identify areas where logistical interventions are most needed.
+    """
     def __init__(self, name, df):
         self.html_id = name.lower().replace(" ", "-")
         self.df = df
@@ -19,21 +23,30 @@ class TransportRankView(html.Div):
         )
 
     def update(self, top_n=15, selected_countries=None):
+        """
+        Updates the ranking bar chart.
+        Args:
+            top_n (int): Number of top constrained countries to show.
+            selected_countries (list): List of countries to highlight in blue.
+        """
         if selected_countries is None:
             selected_countries = []
 
         if "Transport Constraint" not in self.df.columns:
             return go.Figure()
 
+        # 1. Filter and Sort Data
         plot_df = self.df[["Country", "Transport Constraint"]].dropna()
         plot_df = plot_df.sort_values("Transport Constraint", ascending=False).head(top_n)
 
+        # 2. Determine Bar Colors (Blue if selected, Red otherwise)
         colors = [
             "#1E88E5" if c in selected_countries else "#E57373"
             for c in plot_df["Country"]
         ]
         y_vals = plot_df["Country"].tolist()
 
+        # 3. Create Bar Chart
         fig = go.Figure(
             data=[
                 go.Bar(
@@ -46,6 +59,7 @@ class TransportRankView(html.Div):
             ]
         )
 
+        # 4. Layout
         fig.update_layout(
             title=dict(
                 text="Transport Constraint — Highest Priority",
@@ -58,7 +72,7 @@ class TransportRankView(html.Div):
                 gridcolor="rgba(200, 200, 200, 0.3)"
             ),
             yaxis=dict(
-                autorange="reversed",
+                autorange="reversed", # Top constraint at the top
                 categoryorder="array",
                 categoryarray=y_vals,
                 tickmode="array",
