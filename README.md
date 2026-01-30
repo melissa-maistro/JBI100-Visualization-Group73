@@ -59,3 +59,5 @@ Open http://127.0.0.1:8050/ in your browser.
 - `processed_risk_data.csv` not found: run `data/preprocessing.ipynb`.
 - Empty map or charts: verify the CSV has the required columns and non-null data.
 - Port in use: change the port in `app.py`.
+
+We only used the framework given by the course instructors which means dash, plotly and pandas. Additionally we used scikit-learn, numpy.
