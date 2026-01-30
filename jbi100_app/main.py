@@ -253,6 +253,25 @@ TRANSPORT_DRAWER_STYLE = {
     "border": "1px solid rgba(230, 230, 235, 0.8)"
 }
 
+# --- PCA AXIS TOOLTIP TEXT ---
+PC1_TOOLTIP = (
+    "PC1 — Overall Structural Risk\n\n"
+    "Combines economic, social, infrastructure,\n"
+    "demographic, and transport risks.\n"
+    "Higher values indicate overall\n"
+    "higher structural vulnerability.\n\n"
+    "Explained variance: 55.77%\n"
+)
+
+PC2_TOOLTIP = (
+    "PC2 — Accessibility vs Socio-Economic Risk\n\n"
+    "Contrasts transport constraints\n"
+    "with social and economic fragility.\n"
+    "Higher values indicate\n"
+    "accessibility-related risk.\n\n"
+    "Explained variance: 16.59%\n"
+)
+
 # --- LAYOUT DEFINITION ---
 app.layout = html.Div([
     # Client-side Stores (for state management without global variables)
@@ -450,14 +469,64 @@ app.layout = html.Div([
         ),
 
         # Graph Container (Updated to use Flexbox to fill available space)
-        html.Div(
-            dcc.Graph(
-                id=pca_scatter.html_id,
-                figure=pca_scatter.update('rgb(255,100,100)', None),
-                style={"height": "100%", "width": "100%"}  # Fills the flex container
-            ),
-            style={"flex": "1", "overflow": "hidden", "position": "relative"}
+        # Graph Container (with axis hover info overlays)
+html.Div(
+    style={"flex": "1", "overflow": "hidden", "position": "relative"},
+    children=[
+        dcc.Graph(
+            id=pca_scatter.html_id,
+            figure=pca_scatter.update('rgb(255,100,100)', None),
+            style={"height": "100%", "width": "100%"}
         ),
+
+        # PC1 hover label (bottom-center)
+        html.Div(
+            "PC1 ⓘ",
+            id="pc1-axis-help",
+            title=PC1_TOOLTIP,
+            style={
+                "position": "absolute",
+                "bottom": "12px",
+                "left": "50%",
+                "transform": "translateX(-50%)",
+                "fontSize": "12px",
+                "fontWeight": "600",
+                "color": "#6c757d",
+                "backgroundColor": "rgba(255,255,255,0.85)",
+                "border": "1px solid rgba(0,0,0,0.08)",
+                "borderRadius": "10px",
+                "padding": "4px 8px",
+                "cursor": "help",
+                "userSelect": "none",
+                "zIndex": 5,
+            }
+        ),
+
+        # PC2 hover label (left-center, rotated)
+        html.Div(
+            "PC2 ⓘ",
+            id="pc2-axis-help",
+            title=PC2_TOOLTIP,
+            style={
+                "position": "absolute",
+                "top": "50%",
+                "left": "10px",
+                "transform": "translateY(-50%) rotate(-90deg)",
+                "transformOrigin": "left top",
+                "fontSize": "12px",
+                "fontWeight": "600",
+                "color": "#6c757d",
+                "backgroundColor": "rgba(255,255,255,0.85)",
+                "border": "1px solid rgba(0,0,0,0.08)",
+                "borderRadius": "10px",
+                "padding": "4px 8px",
+                "cursor": "help",
+                "userSelect": "none",
+                "zIndex": 5,
+            }
+        ),
+    ]
+),
 
         # --- PCA LEGEND & METHODOLOGY ---
         html.Div(
@@ -1075,8 +1144,9 @@ def update_pca_graph(explore_mode, brushed_countries):
     if brushed_list:
         selected_indices = df[df["Country"].isin(brushed_list)].index.tolist()
 
-    return pca_scatter.update(selected_color, selected_indices)
-
+    fig = pca_scatter.update(selected_color, selected_indices)
+    fig.update_layout(xaxis_title=None, yaxis_title=None)
+    return fig
 
 # K. Methodology Info (Optional)
 @app.callback(
