@@ -1,0 +1,519 @@
+A Framework for Analyzing Structural Vulnerabilities Across Countries
+Simone Bacchetta
+2383217
+Giorgio Maria Maioli
+2390329
+Melissa Maistro
+2014599
+Davide Zanni
+2371782
+ABSTRACT
+This paper presents an interactive multi-view visualization system
+for analyzing structural vulnerabilities in countries facing humanitar-
+ian crises. We address the challenge of understanding how economic,
+social, infrastructural, and demographic factors combine to create
+response capacity limitations. Using data from the CIA Global Sta-
+tistical Database covering 259 countries, we develop a coordinated
+visualization framework that integrates choropleth mapping, radar
+charts, PCA projections, parallel coordinates, and ranked bar charts.
+The system supports strategic humanitarian analysts in comparing
+countries, exploring correlations among risk dimensions, and iden-
+tifying intervention priorities. Following Munzner’s nested model,
+we systematically derive domain tasks, abstract them to visualiza-
+tion operations, and justify design choices through perceptual and
+interaction principles. Use cases demonstrate the system’s effec-
+tiveness in revealing non-obvious vulnerability patterns, such as
+infrastructure-driven risks in geographically isolated nations and
+clusters of countries with correlated economic and social fragility.
+1 INTRODUCTION
+This project addresses how humanitarian organizations can under-
+stand how multiple structural factors combine to make countries
+vulnerable during crises. Infrastructural, demographic, economic,
+and governance constraints each shape response capacity, yet such
+complexity cannot be reduced to a single score. As Munzner ex-
+plains, collapsing various indicators into one value can hide impor-
+tant weaknesses of the system [2].
+We support strategic humanitarian analysts within NGOs and
+international bodies in identifying, comparing, and exploring struc-
+tural vulnerabilities in a way that preserves nuance and reveals latent
+response limitations. Using the CIA Global Statistical Database [1],
+we develop an interactive system that integrates multiple dimen-
+sions of vulnerability into a coordinated multi-view environment
+supporting exploratory analysis, comparison, and informed decision-
+making.
+Visualization is appropriate because it enables human judgment
+where automated models cannot capture domain-specific semantics.
+Visual representations reveal structure, expose trade-offs, and al-
+low users to integrate expert knowledge with data-driven insights,
+essential in high-stakes humanitarian contexts.
+2 DATAANALYSIS(WHAT)
+The data used in this project is drawn from the CIA Global Statistical
+Database [1], which provides country-level indicators spanning de-
+mographic, economic, infrastructural, geographic, and governance-
+related domains. Following Munzner’s data abstraction framework,
+the dataset is modeled as a multivariate table in which each item
+represents a country, consistently identified across multiple domain-
+specific tables by country name.
+From the full set of available indicators, a subset was selected
+based on domain relevance to humanitarian vulnerability. Attribute
+selection focused on indicators that capture structural constraints
+on crisis preparedness, response capacity, and recovery. These in-
+clude economic attributes (e.g., GDP per capita, public debt, poverty
+rate), social indicators (e.g., infant mortality, youth unemployment,
+migration), infrastructure-related measures (e.g., road density, elec-
+tricity access, internet usage), and demographic characteristics (e.g.,
+population growth, median age). Attributes weakly related to these
+dimensions or exhibiting sparse coverage were excluded to maintain
+analytical coherence.
+The selected attributes are heterogeneous in scale and units, in-
+cluding absolute values, percentages, rates, and monetary measures.
+Rather than treating this as inconsistency, attributes were interpreted
+according to the underlying concepts they represent. Absolute quan-
+tities were considered relative to population or land area where
+appropriate, while percentages and rates were treated as propor-
+tional indicators of access, deprivation, or structural pressure. This
+conceptual harmonization supports meaningful comparison across
+attributes while preserving semantic intent.
+Data completeness varies across countries and indicators due to
+differences in national reporting capacity and transparency. In the
+humanitarian domain, missing values may themselves reflect struc-
+tural vulnerability; therefore, missingness is treated as an inherent
+property of the data rather than a preprocessing error to be resolved
+at this stage.
+The dataset was provided as multiple CSV files and merged into
+a single multivariate table using country name as a common iden-
+tifier. Non-numeric artifacts such as percentage symbols and cur-
+rency markers were removed to enable numerical processing, while
+preserving the semantic meaning of each attribute. No statistical
+modeling was performed during this stage; processing was limited
+to cleaning and restructuring to support comparative analysis.
+Several derived attributes were computed to better align mea-
+surements with structural concepts. Road density was derived by
+normalizing total roadway length by land area, internet penetration
+by dividing the number of internet users by population, and the gen-
+der literacy gap as the difference between male and female literacy
+rates. These derived attributes improve interpretability and compa-
+rability by expressing access and inequality in scale-independent
+terms.
+To enable comparison across attributes with different units and
+ranges, Min–Max scaling was applied to normalize values to the
+[0,1] range. Attributes for which higher values indicate greater
+stability (e.g., GDP per capita, literacy rates, electricity access) were
+inverted so that higher scaled values consistently represent higher
+structural risk.
+Each country is also associated with geographic information, al-
+lowing the multivariate data to be situated within a spatial context.
+This supports the analysis of regional patterns and spatial cluster-
+ing, which are particularly relevant in humanitarian settings where
+neighboring countries may share vulnerabilities or infrastructure
+constraints.
+3 TASKANALYSIS(WHY)
+3.1 Domain Specific Tasks
+3.1.1 Understanding Structural Vulnerability Across Multiple
+Risk Dimensions
+This task examines how different structural weaknesses combine
+to shape a country’s overall vulnerability. Using country-level indi-
+
+Table 1: Core risk attributes, data types, and semantic meaning.
+Attribute Cat/Ord Ordering Type Description
+1. Economic Resilience RiskPopulationBelowPovertyLinepercent Ordered Quantitative: SequentialPercentage of population living below the na-tional poverty line, indicating limited householdeconomic resilience.PublicDebtpercentofGDP Ordered Quantitative: SequentialGovernment debt as a share of GDP, reflectingfiscal constraints on crisis response.RealGDPperCapitaUSD Ordered Quantitative: SequentialAverage economic output per person, used as aproxy for overall economic capacity.
+2. Social Fragility RiskInfantMortalityRate Ordered Quantitative: SequentialNumber of infant deaths per 1,000 live births,indicating healthcare system effectiveness.YouthUnemploymentRate Ordered Quantitative: SequentialPercentage of unemployed individuals aged15–24, capturing social and economic instabilityrisks.NetMigrationRate Ordered Quantitative: DivergingNet number of migrants per 1,000 population,reflecting population displacement or attractive-ness.
+3. Access Constraints RiskRoadwaysDensity Ordered Quantitative: SequentialTotal length of roadways normalized by landarea, representing physical accessibility.Electricityaccesspercent Ordered Quantitative: SequentialPercentage of population with access to electric-ity, indicating basic service availability.Internetusersshare Ordered Quantitative: SequentialProportion of population using the internet, mea-suring communication and information access.
+4. Population Stress RiskPopulationGrowthRate Ordered Quantitative: SequentialAnnual population growth rate, capturing pres-sure on resources and services.MedianAge Ordered Quantitative: SequentialMedian age of the population, reflecting demo-graphic structure and dependency ratios.
+5. Transport Constraint RiskAirportsPavedRunwaysCount Ordered Quantitative: Sequential Count of paved airport runways.AirportsUnpavedRunwaysCount Ordered Quantitative: Sequential Count of unpaved airport runways.Roadwayskm Ordered Quantitative: Sequential Total length of roadways in km.Railwayskm Ordered Quantitative: Sequential Total length of railways in km.Waterwayskm Ordered Quantitative: Sequential Total length of navigable waterways in km.
+cators across economic capacity, social conditions, infrastructural
+access, and demographic stress, the goal is to understand how lim-
+ited financial resilience, fragile social systems, constrained logistical
+access, and rapid population dynamics interact within national con-
+texts.
+Economic resilience risk captures a country’s ability to withstand
+shocks through poverty levels, public debt, and average income.
+These indicators reflect whether the state possesses the financial
+capacity to respond effectively during crises.
+Social fragility focuses on underlying pressures created by health
+outcomes, youth unemployment, and migration dynamics. Infant
+mortality highlights systemic weakness in healthcare, while high
+youth unemployment and negative migration flows signal potential
+social instability.
+Access constraints describe how infrastructure and basic services
+affect crisis response. Roadway density, electricity availability, and
+digital connectivity indicate whether communities can be reached,
+informed, and supported when disruptions occur.
+Population stress is represented through population growth rates
+and the median age structure. High growth and very young popula-
+tions increase dependency ratios and intensify pressure on essential
+resources and public services.
+The overall objective is to integrate these dimensions to identify
+how multiple structural weaknesses coexist and interact, providing a
+comprehensive understanding of country-level vulnerability.
+3.1.2 Comparing Countries Across Structural Vulnerability
+Risks
+The second task focuses on comparing countries to understand how
+different risk dimensions vary across contexts. Building on the struc-
+tural vulnerability indicators defined earlier, this task aims to help
+analysts examine how countries differ in their levels of communi-
+cation access, social inequality, demographic pressure, economic
+constraints, and institutional barriers. The goal is to identify which
+countries face similar patterns of weakness, which ones diverge
+sharply, and where unexpected combinations of risks appear. By
+enabling direct comparison across multiple dimensions at once, the
+task supports higher-level reasoning about regional trends, outliers,
+clusters of similarity, and potential underlying drivers. This compar-
+ative view helps analysts move from isolated country assessments to
+a broader understanding of how structural vulnerability manifests
+across the global landscape.
+3.1.3 Exploring Correlations Between Structural Vulnerability
+Risks
+This task involves analyzing the relationships among multiple risk
+dimensions to understand how they co-occur and influence overall
+vulnerability. Rather than examining each risk in isolation, analysts
+investigate whether countries with weak communication infrastruc-
+ture also tend to experience high social inequality, demographic
+pressure, economic constraints, or institutional barriers. The goal is
+to detect patterns of interdependence, such as clusters of countries
+where multiple risks reinforce each other, and to identify exceptions
+where one risk is high but others are low. Understanding these corre-
+lations helps reveal systemic vulnerabilities, informs prioritization
+of interventions, and supports reasoning about underlying factors
+that connect different structural weaknesses.
+3.1.4 Identifying Countries for Intervention Based on Trans-
+portation Infrastructure
+This task focuses on determining where the NGO should consider
+intervening based on the state of a country’s transportation infrastruc-
+ture. Analysts examine key indicators such as the number of paved
+and unpaved runways, total roadways, railways, and waterways. By
+assessing these attributes together, the task identifies countries where
+transportation networks are limited, fragmented, or otherwise insuffi-
+cient to support timely delivery of aid. The goal is to detect logistical
+bottlenecks, highlight countries at higher operational risk, and priori-
+tize interventions where infrastructure constraints could significantly
+impede humanitarian response. This task requires comparing multi-
+ple infrastructure dimensions across countries and interpreting how
+gaps or weaknesses may interact with other vulnerabilities to guide
+decision-making.
+3.2 Task Abstraction (Why, domain independent)
+Table 2: Task abstraction following Munzner’s high-, mid-, and low-
+level action model.
+High-Level Goal Mid-Level Actions Low-Level Actions
+Understand vulnerabil-ity Analyze, Discover Inspect multiple attributes for a country, identifydominant risk dimensions, characterize overallvulnerability patterns.
+Compare countries Query, Compare Select multiple countries, compare attribute val-ues across risk dimensions, identify similaritiesand differences.
+Explore correlations Analyze, DiscoverExamine relationships between pairs or groupsof attributes, identify positive or negative depen-dencies and co-occurring risks.
+Identify intervention tar-gets Query, Identify Filter countries based on extreme or thresholdvalues, rank countries by infrastructure-relatedattributes, select high-risk candidates.
+The domain-specific tasks described above can be reformulated
+in a domain-independent manner using Munzner’s task abstraction
+framework [2]. At the highest level, analysts aim to understand
+structural vulnerability, compare countries, explore relationships
+among risk factors, and identify candidates for intervention. These
+goals translate into mid-level actions such as analyzing, discovering,
+querying, comparing, and identifying. At the lowest level, tasks in-
+volve inspecting attribute values, characterizing patterns, identifying
+similarities or extremes, and reasoning about dependencies between
+attributes.
+At this stage, the focus is exclusively on understanding what ana-
+lysts need to accomplish, independent of any specific visualization
+or interaction technique. This abstraction ensures that subsequent
+design decisions are grounded in analytical requirements rather than
+prematurely driven by implementation choices.
+4 CURRENT SOLUTION
+The visualization system implements a coordinated multi-view de-
+sign that addresses the domain tasks through carefully chosen visual
+encodings and interaction strategies. Following Munzner’s ”eyes
+
+Figure 1: Choropleth map showing Total Vulnerability Index across
+countries. Red indicates high vulnerability, green indicates low vulner-
+ability.
+beat memory” principle, the design enables simultaneous compari-
+son across multiple dimensions while preserving spatial context and
+supporting both overview and detail-on-demand workflows.
+4.1 Overview: Multi-View Coordination Architecture
+The system integrates five coordinated views following task-driven
+visualization framework, separating overview, exploration, compari-
+son, and detail tasks across complementary views. The Choropleth
+Map provides the high-level overview of global vulnerability pat-
+terns. Three analytical views: the PCA Risk Space, Risk Comparison
+Plot, and Transport Constraint Ranking. They support exploration,
+comparison, and prioritization tasks, respectively. The Radar Chart
+provides detail-on-demand for the characterization of individual
+country risk profiles.
+The views are coordinated through linked selection and brushing:
+selections made in any view propagate to all others through cyan
+highlighting on the map and color encoding in other views.
+4.2 View 1: Choropleth Map - Spatial Overview
+Visual Encoding Design:A map is used because its familiar geo-
+graphic syntax allows users to immediately associate spatial position
+with real-world location, enabling rapid bidirectional translation be-
+tween visual structure and semantic meaning. The choropleth map
+(Fig.1) encodes risk scores using a diverging Red-Yellow-Green
+color scale (RdYlGn reversed), where red represents high vulnera-
+bility and green represents low vulnerability. This encoding choice
+is justified by several perceptual principles: it leverages pre-attentive
+cultural associations, with red signaling danger and green indicating
+safety, thereby reducing cognitive load during interpretation. The
+diverging scale is designed to be perceptually uniform across the
+[0,1] range, ensuring that equal differences in data values correspond
+to equal perceived differences in color. To enhance accessibility, an
+alternativeViridiscolormap is provided for users with color vision
+deficiencies (Fig.3).
+Spatial Encoding:Geographic position is encoded through the
+Natural Earth projection, which balances area distortion and shape
+preservation. This projection choice supports the task of identify-
+ing regional patterns and clusters while maintaining recognizable
+country shapes for quick identification.
+Mark Type:Countries are represented as area marks (filled
+polygons), which is the appropriate choice for geographic regions
+according to Munzner’s mark taxonomy. The area mark naturally
+conveys the extent and boundaries of each country’s territory.
+Justification for Choropleth Choice:The choropleth was se-
+lected over alternative representations such as cartograms or pro-
+portional symbols because it preserves geographic context, which
+is essential for spatial pattern discovery. By using area marks that
+Figure 2: Menu allows to select a risk dimension to visualize. Color-
+blind friendly colormap is also available.
+occupy the full spatial extent of each country, the visualization sup-
+ports pre-attentive detection of regional patterns. In addition, the
+design allows users to leverage existing geographic knowledge to
+navigate and contextualize findings, while simultaneously presenting
+all countries in a single view, effectively supporting the overview
+task.
+Interaction Design:Interaction with the choropleth map supports
+both overview and focused analysis. Clicking on a country opens the
+radar chart, enabling detailed inspection of its vulnerability profile.
+Pan and zoom interactions allow users to navigate the map and focus
+on specific geographic regions. Analysts can switch between risk
+dimensions (Economic, Social, Infrastructure, Demographic, and
+Transport Constraint) using radio buttons (Fig.2), which implement
+a reduce operation by changing the attribute that drives the color en-
+coding. To maintain spatial continuity, the zoom and pan state is pre-
+served across layer changes using{uirevision=selected risk},
+preventing disorienting view resets.
+Highlighting Strategy:Selected countries from the Compare
+or Transport modes are highlighted with cyan borders (3px width).
+This choice follows the principle of using a separate visual channel
+(border color/width) for selection state, ensuring it remains visible
+across all risk layers regardless of the fill color.
+
+Figure 3: An alternativeViridiscolormap is provided for users with
+color vision deficiencies.
+Figure 4: Radar chart for Italy showing infrastructure and transport-
+dominated risk profile.
+4.3 View 2: Radar Chart - Detail-on-Demand
+Visual Encoding Design:The radar chart (Fig.4) uses a radial/polar
+coordinate system to encode the five risk dimensions simultaneously.
+Each dimension occupies one axis radiating from a central origin,
+with distance from center encoding risk magnitude on a [0,1] scale.
+Mark and Channel Choices:The radar chart represents each
+country using line marks that connect the five data points, with
+point marks at each vertex. Radial position encodes the risk score,
+a quantitative ordered attribute, while the resulting polygon shape
+provides a gestalt view of the overall risk profile. The fill color is
+a semi-transparent red (rgba(211, 47, 47, 0.2)) with a solid
+red border, semantically reinforcing the interpretation of high risk.
+A gray dashed line indicates the global mean for each dimension,
+allowing immediate detection of deviations from the overall average.
+Justification for Radar Chart:The radar chart offers several
+advantages for representing multivariate risk profiles. By displaying
+all five dimensions simultaneously, it enables a holistic assessment
+of overall risk balance and supports shape-based interpretation. The
+resulting polygon is visually distinctive and facilitates rapid catego-
+rization of profiles, such as identifying balanced versus dimension-
+dominated vulnerabilities. Radial symmetry further aids in detecting
+whether risks are evenly distributed or concentrated in specific di-
+mensions, while the compact layout allows multiple attributes to be
+shown efficiently within limited screen space.
+Despite these strengths, the radar chart has known limitations.
+The visual shape is sensitive to the ordering of axes; this issue is
+mitigated by adopting a fixed and semantically meaningful dimen-
+sion order (Economic →Demographic →Infrastructure →Social).
+In addition, the area enclosed by the polygon does not represent a
+meaningful aggregate measure, so the design emphasizes individual
+dimension values rather than overall area. Finally, direct comparison
+of multiple countries within the same radar chart is difficult, which
+Figure 5: PCA scatterplot revealing clusters of countries with similar
+multi-dimensional risk patterns.
+Figure 6: Definition of parameters PC1 and PC2.
+motivates the inclusion of a dedicated comparison plot to support
+multi-country analysis.
+Interaction Design:The radar chart includes a focus indicator
+that displays a subtitle whenever a risk layer is selected on the
+map, signaling which dimension is being examined globally. A
+close button allows users to dismiss the detail view and return full
+attention to the overview map.
+4.4 View 3: PCA Risk Space - Correlation Exploration
+Visual Encoding Design:The PCA scatterplot (Fig.5) projects
+countries into a two-dimensional space defined by the first two
+principal components (PC1, PC2) (Fig.6) derived from the five risk
+dimensions. This addresses the explore correlations task by revealing
+latent structure in the multivariate risk data.
+Mark and Channel Choices:The PCA view represents each
+country as a point mark within a two-dimensional scatterplot.
+Horizontal position encodes the first principal component (PC1),
+while vertical position encodes the second principal component
+(PC2). Color is used to indicate interaction state: unselected coun-
+tries appear in a muted blue-gray (rgba(100, 149, 237, 0.6)),
+whereas selected countries are highlighted in bright green (rgba(17,
+153, 142, 1.0)), matching the visual identity of theExplore Cor-
+relationscontrol. Selection is further reinforced through size and
+opacity, with selected points increasing in size (8 px versus 6 px)
+and unselected points fading to 40% opacity, creating a clear visual
+pop-out effect.
+Justification for PCA Scatterplot:This view addresses the
+challenge of exploring relationships among five risk dimensions,
+which would otherwise require reasoning in a five-dimensional space
+beyond human perceptual capacity. Principal Component Analysis
+provides a principled dimensionality reduction by projecting the
+data onto directions of maximum variance, allowing the dominant
+
+Figure 7: Parallel coordinates comparing Lebanon, Y emen, Iran and
+Afghanistan across risk dimensions.
+correlation structure to be inspected in two dimensions. As a result,
+countries with similar multivariate risk profiles form spatial clusters,
+extreme or atypical combinations of risks appear as outliers, and the
+spatial arrangement naturally supports exploratory reasoning and
+hypothesis generation.
+Interaction Design:Users can interact with the PCA view
+through rectangular brushing to select subsets of countries, imple-
+menting a direct select operation. Selection is bidirectional: brushed
+countries are highlighted on the map with cyan borders, while map-
+selected countries highlight corresponding points in the PCA view.
+The view is shown or hidden via a drawer controlled by theEx-
+plore Correlationsbutton, preventing occlusion of the map when
+correlation analysis is not required
+4.5 View 4: Risk Comparison Plot - Multi-Country Com-
+parison
+Visual Encoding Design:The comparison view uses a parallel
+coordinates-style line plot (Fig.7) to enable direct comparison of
+multiple countries across the five risk dimensions simultaneously.
+This specifically addresses the compare countries task identified in
+Section 3.
+Mark and Channel Choices:In the comparison plot, each coun-
+try is represented by a line connecting five points, one per risk
+dimension. Horizontal position encodes the risk dimension (cat-
+egorical, nominal), while vertical position encodes the risk score
+on a [0,1] quantitative scale. Each country is assigned a distinct
+hue from the Plotly Bold qualitative palette to differentiate profiles.
+Line width varies to indicate selection status, with selected countries
+drawn at 3px and the global baseline at 2px. The global mean is
+further distinguished using a dotted line style, providing a reference
+that anchors above- and below-average comparisons.
+Justification for Parallel Coordinates Design:This encoding is
+well suited for the multi-country comparison task because the slope
+of the lines between dimensions makes trends immediately visible,
+revealing whether countries have similar or divergent risk profiles.
+The global mean line provides a clear reference, allowing users to
+quickly assess whether a country falls above or below average for
+each dimension. Furthermore, the design scales effectively for small
+groups of countries (typically two to five), minimizing overplotting
+while maintaining clarity of individual profiles.
+4.6 View 5: Transport Constraint Ranking - Intervention
+Targeting
+Visual Encoding Design:The transport ranking view uses a hor-
+izontal bar chart (Fig.8) sorted in descending order by Transport
+Constraint score. This directly supports the identify intervention
+targets task by ranking countries by infrastructure need.Mark and
+Channel Choices:The transport constraint ranking is represented
+using horizontal bar marks, with each bar corresponding to a country.
+Bar length encodes the Transport Constraint score as a quantitative
+Figure 8: Transport constraint ranking showing top 15 countries, dom-
+inated by Sub-Saharan Africa.
+attribute, while vertical position on the y-axis encodes country names
+as categorical values. Color is used to distinguish interaction state:
+countries selected in compare mode are shown in blue (#1E88E5),
+while unselected countries appear in red (#E57373), providing a
+clear visual distinction between selected and other candidates. Coun-
+tries are sorted in descending order of constraint score, ensuring
+that the highest-priority intervention targets appear at the top of the
+ranking.
+Justification for the Horizontal Bar Chart:This encoding is
+well suited to the ranking and identification task. Horizontal bar
+length is one of the most accurately perceived quantitative visual
+channels, as demonstrated by Cleveland and McGill, enabling pre-
+cise magnitude comparison. All bars share a common baseline
+at zero, further supporting accurate comparison across countries.
+The horizontal orientation also provides sufficient space for country
+names along the y-axis, improving label legibility. In addition, a top-
+N slider allows analysts to reduce the number of displayed countries
+from 25 to as few as 5, implementing a filter operation that helps
+manage cognitive load.
+Interaction Design:Interaction with the ranking view supports
+both exploration and selection. The top-N slider controls how many
+countries are displayed, dynamically updating the view to focus
+on the most relevant candidates. Clicking a bar toggles the corre-
+sponding country in the selection set, and selected countries are
+highlighted on the map using cyan borders through linked selection.
+The entire panel can be repositioned via drag-and-drop using custom
+JavaScript, allowing users to adapt the layout to personal preferences
+and analysis needs.
+5 IMPLEMENTATION
+The visualization system was implemented as an interactive web-
+based dashboard using Python and the Dash framework. Dash was
+chosen for its ability to integrate data processing, visualization, and
+interaction within a single environment, allowing rapid iteration
+and direct coupling between analytical logic and visual output. The
+system architecture follows a modular pipeline in which data prepa-
+ration, metric computation, and visualization are clearly separated.
+The system is implemented in Dash and Plotly (Python) to support
+rapid prototyping, declarative visual encoding, coordinated multiple
+views, and cross-platform web deployment. User interactions are
+handled through a reactive callback architecture in which changes
+update shared application state stored in dcc.Store components,
+ensuring consistent coordination across views via a unidirectional
+data flow. Plotly’s WebGL-based rendering ensures smooth interac-
+tive performance, including dynamic highlighting on the map. Cus-
+tom JavaScript extensions further enhance interaction by enabling
+drag-and-drop repositioning of the radar view and the transport
+ranking panel, supporting flexible user-controlled layout.
+
+Figure 9: PCA scatterplot brushing of Russia, Belarus, Latvia, Lithua-
+nia and Estonia. Same cluster suggests same risk profiles.
+Figure 10: Multi-country comparison using a parallel coordinates
+plot between Russia, Belarus, Latvia, Lithuania and Estonia. Almost
+identical risk profiles.
+6 USECASES ANDRESULTS
+We demonstrate the system’s effectiveness through two use cases
+validating the domain tasks from Section 3.
+6.1 Use Case 1: Post-Soviet Systemic Vulnerabilities
+PCA brushing reveals a tight cluster of Eastern European nations
+(Russia,Belarus,Latvia,Lithuania,Estonia) (Fig. 9). The com-
+parison plot shows parallel elevated lines across Economic, Social,
+and Demographic dimensions (Fig. 10); symmetric radar profiles
+confirm balanced multi-dimensional risk.Insight: These countries
+exhibit correlated vulnerabilities requiring coordinated multi-sector
+interventions rather than single-domain solutions. PCA was essential
+for discovering five-dimensional correlations.
+Figure 11: Multi-country comparison using a parallel coordinates plot
+between Uganda, Rwanda and Nigeria. Similar infrastructure risk
+profiles.
+Figure 12: Multi-country comparison using a parallel coordinates plot
+between Uganda, Rwanda and Nigeria. Similar transport risk profiles.
+6.2 Use Case 2: Regional Transport Intervention Priori-
+ties
+Transport Focus Mode shows 9 of top-15 constrained countries are
+Sub-Saharan African:Uganda(0.83),Rwanda(0.82),Nigeria
+(0.82). Comparison reveals near-identical profiles (high Infrastruc-
+ture (Fig. 11) + Transport (Fig. 12)). Geographic proximity suggests
+regional coordination opportunities.Insight: Growing populations
+mean early infrastructure investment is more cost-effective than
+delayed response.
+7 CONCLUSION ANDFUTUREWORK
+Following Munzner’s nested model, we developed a coordinated
+multi-view system integrating spatial, multivariate, and ranked per-
+spectives for humanitarian vulnerability analysis. The system suc-
+cessfully decomposes vulnerability into constituent dimensions, en-
+abling comparison at multiple levels while maintaining context.
+Future work should prioritize: temporal analysis and forecast-
+ing; network views for crisis propagation; user customization for
+organization-specific risk definitions; and integration with opera-
+tional logistics data.
+The use cases demonstrate that coordinated views reveal non-
+trivial insights invisible to automated analysis or single views. The
+project reinforces thatdifferent questions require different views,
+but coordinated views are more powerful than isolated views.
+
+REFERENCES
+[1] K. Arya. CIA Global Statistical Database. https:
+//www.kaggle.com/datasets/kushagraarya10/
+cia-global-statistical-database?select=demographics_
+data.csv, 2025. Accessed: 2025-12-22.
+[2] T. Munzner.Visualization Analysis & Design. CRC Press, Taylor &
+Francis Group, Boca Raton, FL, USA, 2014. A K Peters Visualization
+Series.
